@@ -3,300 +3,331 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>هوكي نيون أونلاين - 5 لاعبين 🏑</title>
+    <title>هوكي نيون أونلاين 🏑 - 5 لاعبين</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #121212; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; touch-action: none; }
         .container { background: #1e1e24; padding: 20px; border-radius: 15px; box-shadow: 0 0 20px rgba(0,255,204,0.1); text-align: center; width: 90%; max-width: 450px; z-index: 10; }
         h1 { color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.5); margin-bottom: 5px; }
-        .input-group { display: flex; gap: 10px; margin: 15px 0; }
-        input { flex: 1; padding: 12px; border: 2px solid #555; background: #121212; color: #fff; border-radius: 8px; text-align: center; outline: none;}
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin: 15px 0; }
+        input { padding: 12px; border: 2px solid #555; background: #121212; color: #fff; border-radius: 8px; text-align: center; outline: none;}
         input:focus { border-color: #00ffcc; }
-        button { padding: 12px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; color:#000; width: 100%; background: #00ffcc; box-shadow: 0 0 10px #00ffcc; margin-top: 10px;}
+        button { padding: 12px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; color:#000; background: #00ffcc; box-shadow: 0 0 10px #00ffcc; width: 100%;}
         button:hover { filter: brightness(1.2); }
-        button:disabled { background: #555; box-shadow: none; cursor: not-allowed; }
         
-        #gameArea { display: none; flex-direction: column; align-items: center; width: 100%; }
-        #topBar { display: flex; justify-content: space-between; width: 100%; max-width: 600px; padding: 10px; box-sizing: border-box; align-items: center;}
-        #status { font-size: 1.1em; font-weight: bold; color: #ffcc00; }
-        #startBtn { display: none; width: auto; padding: 8px 15px; margin: 0; font-size: 14px;}
-        canvas { background: #1a1a24; border: 3px solid #333; border-radius: 50%; box-shadow: inset 0 0 30px #000, 0 0 20px rgba(0, 255, 204, 0.2); max-width: 95vw; max-height: 80vh; object-fit: contain; }
+        #gameArea { display: none; flex-direction: column; align-items: center; position: relative; }
+        #status { margin: 10px 0; font-size: 1.1em; font-weight: bold; color: #ffcc00; text-align: center; }
+        #hostControls { display: none; margin-bottom: 10px; }
+        canvas { background: #1a1a24; border: 3px solid #333; border-radius: 10px; box-shadow: inset 0 0 20px #000; max-width: 100%; }
+        
+        .players-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 10px; font-size: 12px;}
+        .player-badge { padding: 5px 10px; border-radius: 15px; font-weight: bold; color: #000; }
     </style>
 </head>
 <body>
 
     <div class="container" id="loginArea">
         <h1>هوكي نيون 🏑</h1>
-        <p style="color: #aaa; font-size: 14px;">تحدي حتى 5 لاعبين - البقاء للأقوى</p>
+        <p style="color: #aaa; font-size: 14px;">أدخل اسمك ورقم الغرفة (حتى 5 لاعبين)</p>
         
         <div class="input-group">
             <input type="text" id="playerName" placeholder="اسمك..." required>
             <input type="number" id="roomCode" placeholder="رقم الغرفة" required>
         </div>
-        <button onclick="joinGame()">دخول الغرفة</button>
+        <button onclick="joinGame()">دخول للغرفة</button>
     </div>
 
     <div id="gameArea">
-        <div id="topBar">
-            <div id="status">جاري الاتصال...</div>
-            <button id="startBtn" onclick="requestStart()">بدء اللعبة</button>
-        </div>
-        <canvas id="hockeyBoard" width="600" height="600"></canvas>
+        <div id="status">جاري الاتصال...</div>
+        <div id="hostControls"><button onclick="startHostGame()">بدأ اللعبة الآن (أنت المضيف)</button></div>
+        <div class="players-list" id="playersList"></div>
+        <canvas id="hockeyBoard" width="400" height="600"></canvas>
     </div>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
         const SERVER_URL = 'https://render-kr1o.onrender.com/';
         let socket;
-        let myRoom = "", myName = "", myId = "";
+        let myRoom = "", myName = "";
+        let myId = null;
         let isHost = false;
-        let isPlaying = false;
         
         const canvas = document.getElementById('hockeyBoard');
         const ctx = canvas.getContext('2d');
-        const cx = canvas.width / 2;
-        const cy = canvas.height / 2;
-        const R = 280; // نصف قطر الحلبة
+        const CX = 200, CY = 300, R = 180;
+        const colors = ['#00ffcc', '#ff0055', '#cc00ff', '#ffcc00', '#00ccff'];
 
-        // ألوان النيون لكل لاعب
-        const colors = ['#00ffcc', '#ff0055', '#ffcc00', '#00ccff', '#cc00ff'];
-        
-        let players = {}; 
-        let activePlayerIds = [];
-        let puck = { x: cx, y: cy, r: 12, dx: 0, dy: 0 };
+        // حالة اللعبة العامة
+        let gameState = {
+            status: 'waiting', // waiting, playing, gameover
+            players: [], // { id, name, lives, color, x, y, active }
+            puck: { x: CX, y: CY, dx: 0, dy: 0, r: 10 }
+        };
+
+        // متغيرات الحركة المحلية
+        let myIntent = { x: CX, y: CY };
 
         function joinGame() {
             myName = document.getElementById('playerName').value.trim();
             myRoom = document.getElementById('roomCode').value.trim();
-            if (!myName || !myRoom) return alert("الرجاء كتابة اسمك ورقم الغرفة!");
+            if (!myName || !myRoom) return alert("الرجاء إدخال البيانات!");
 
             document.getElementById('loginArea').style.display = 'none';
             document.getElementById('gameArea').style.display = 'flex';
 
             socket = io(SERVER_URL, { transports: ['websocket'], upgrade: false });
-            
-            socket.on('connect', () => { 
-                myId = socket.id;
-                document.getElementById('status').innerText = `متصل! بانتظار اللاعبين...`; 
-                socket.emit('playerMoved', { type: 'join', room: myRoom, id: myId, name: myName });
+
+            socket.on('connect', () => {
+                // نرسل طلب انضمام للغرفة
+                socket.emit('playerMoved', { type: 'join_req', room: myRoom, name: myName, socketId: socket.id });
+                
+                // إذا لم يرد المضيف خلال 1.5 ثانية، أصبح أنا المضيف
+                setTimeout(() => {
+                    if (myId === null) becomeHost();
+                }, 1500);
             });
 
             socket.on('otherPlayerMoved', (data) => {
                 if (data.room !== myRoom) return;
 
-                if (data.type === 'join') {
-                    if (Object.keys(players).length === 0 && data.id === myId) {
-                        isHost = true; // أول شخص بالغرفة هو الهوست
-                        document.getElementById('startBtn').style.display = 'block';
+                // --- منطق المضيف (Host Logic) ---
+                if (isHost) {
+                    if (data.type === 'join_req' && gameState.players.length < 5 && gameState.status === 'waiting') {
+                        let newPlayer = {
+                            id: data.socketId, name: data.name, lives: 5, 
+                            color: colors[gameState.players.length], x: CX, y: CY, active: true
+                        };
+                        gameState.players.push(newPlayer);
+                        broadcastState();
                     }
-                    if (isHost && Object.keys(players).length < 5 && !isPlaying) {
-                        players[data.id] = { id: data.id, name: data.name, lives: 5, x: cx, y: cy, color: colors[Object.keys(players).length] };
-                        activePlayerIds.push(data.id);
-                        broadcastState(); // الهوست ينشر القائمة للمنضمين
-                    }
-                } 
-                else if (data.type === 'state_sync') {
-                    players = data.players;
-                    activePlayerIds = data.active;
-                    isPlaying = data.isPlaying;
-                    if(!isHost) {
-                        puck.x = data.px; puck.y = data.py;
-                    }
-                    updateStatus();
-                }
-                else if (data.type === 'paddle_update' && isHost) {
-                    if (players[data.id]) {
-                        players[data.id].x = data.x;
-                        players[data.id].y = data.y;
+                    if (data.type === 'paddle_intent') {
+                        let p = gameState.players.find(p => p.id === data.id);
+                        if (p && p.active) { p.x = data.x; p.y = data.y; }
                     }
                 }
+
+                // --- منطق العميل (Client Logic) ---
+                if (data.type === 'state_sync') {
+                    gameState = data.state;
+                    
+                    if (myId === null) {
+                        let me = gameState.players.find(p => p.name === myName); // تحديد الهوية
+                        if (me) {
+                            myId = me.id; 
+                            document.getElementById('status').innerText = `متصل! بانتظار بدء اللعبة...`;
+                        }
+                    }
+                    updateUI();
+                }
+
+                if (data.type === 'chat') alert(data.msg);
             });
 
-            setInterval(gameLoop, 1000 / 60);
+            // معدل الإطارات للعميل (للرسم فقط وإرسال النوايا)
+            setInterval(clientLoop, 1000 / 60);
         }
 
-        function requestStart() {
-            if (activePlayerIds.length < 2) return alert("تحتاج إلى لاعبين على الأقل للبدء!");
-            isPlaying = true;
-            document.getElementById('startBtn').style.display = 'none';
-            // رمي الطابة بشكل عشوائي
+        function becomeHost() {
+            isHost = true;
+            myId = socket.id;
+            gameState.players.push({
+                id: myId, name: myName, lives: 5, color: colors[0], x: CX, y: CY, active: true
+            });
+            document.getElementById('hostControls').style.display = 'block';
+            document.getElementById('status').innerText = `أنت المضيف لغرفة ${myRoom}`;
+            broadcastState();
+            setInterval(hostPhysicsLoop, 1000 / 60); // المضيف يشغل محرك الفيزياء
+        }
+
+        function startHostGame() {
+            if (gameState.players.length < 2) return alert("تحتاج للاعبين على الأقل!");
+            gameState.status = 'playing';
+            document.getElementById('hostControls').style.display = 'none';
+            // رمي الطابة العشوائي
             let angle = Math.random() * Math.PI * 2;
-            puck.dx = Math.cos(angle) * 5;
-            puck.dy = Math.sin(angle) * 5;
+            gameState.puck.dx = Math.cos(angle) * 5;
+            gameState.puck.dy = Math.sin(angle) * 5;
             broadcastState();
         }
 
         function broadcastState() {
-            if (!isHost) return;
-            socket.emit('playerMoved', { 
-                type: 'state_sync', room: myRoom, players, active: activePlayerIds, isPlaying, px: puck.x, py: puck.y 
+            if (isHost) {
+                socket.emit('playerMoved', { type: 'state_sync', room: myRoom, state: gameState });
+            }
+        }
+
+        // --- محرك الفيزياء (يعمل عند المضيف فقط) ---
+        function hostPhysicsLoop() {
+            if (gameState.status !== 'playing') return;
+
+            let puck = gameState.puck;
+            puck.x += puck.dx; puck.y += puck.dy;
+            
+            // احتكاك بسيط
+            puck.dx *= 0.995; puck.dy *= 0.995;
+
+            // حساب الاصطدام بجدار الدائرة أو الأهداف
+            let distFromCenter = Math.hypot(puck.x - CX, puck.y - CY);
+            if (distFromCenter + puck.r > R) {
+                let angle = Math.atan2(puck.y - CY, puck.x - CX);
+                if (angle < 0) angle += Math.PI * 2;
+
+                let activePlayers = gameState.players.filter(p => p.active);
+                let segmentAngle = (Math.PI * 2) / activePlayers.length;
+                let segmentIndex = Math.floor(angle / segmentAngle);
+                
+                // هل ضرب الهدف؟ (منتصف القطاع)
+                let localAngle = angle % segmentAngle;
+                let goalSize = segmentAngle * 0.4; // 40% من مساحة القطاع هدف
+                let goalStart = (segmentAngle - goalSize) / 2;
+                
+                if (localAngle > goalStart && localAngle < goalStart + goalSize) {
+                    // هدف!
+                    let victim = activePlayers[segmentIndex];
+                    victim.lives--;
+                    if (victim.lives <= 0) victim.active = false;
+                    
+                    // تحقق من الفوز
+                    let remaining = gameState.players.filter(p => p.active);
+                    if (remaining.length <= 1) {
+                        gameState.status = 'gameover';
+                        let winner = remaining[0] ? remaining[0].name : "لا أحد";
+                        socket.emit('playerMoved', { type: 'chat', room: myRoom, msg: `انتهت اللعبة! الفائز: ${winner}` });
+                    } else {
+                        // إعادة ضبط الطابة
+                        puck.x = CX; puck.y = CY;
+                        let newAngle = Math.random() * Math.PI * 2;
+                        puck.dx = Math.cos(newAngle) * 4; puck.dy = Math.sin(newAngle) * 4;
+                    }
+                } else {
+                    // ارتداد عادي من الجدار الدائري
+                    let nx = (puck.x - CX) / distFromCenter;
+                    let ny = (puck.y - CY) / distFromCenter;
+                    let dot = puck.dx * nx + puck.dy * ny;
+                    puck.dx = puck.dx - 2 * dot * nx;
+                    puck.dy = puck.dy - 2 * dot * ny;
+                    
+                    // منع الالتصاق
+                    puck.x = CX + nx * (R - puck.r - 1);
+                    puck.y = CY + ny * (R - puck.r - 1);
+                }
+            }
+
+            // اصطدام الطابة بالمضارب
+            gameState.players.filter(p => p.active).forEach(p => {
+                let dx = puck.x - p.x, dy = puck.y - p.y;
+                let dist = Math.hypot(dx, dy);
+                if (dist < 20 + puck.r) { // نصف قطر المضرب 20
+                    let angle = Math.atan2(dy, dx);
+                    let speed = Math.hypot(puck.dx, puck.dy) + 2;
+                    if (speed > 12) speed = 12;
+                    puck.dx = Math.cos(angle) * speed; 
+                    puck.dy = Math.sin(angle) * speed;
+                    puck.x = p.x + Math.cos(angle) * (20 + puck.r + 1);
+                    puck.y = p.y + Math.sin(angle) * (20 + puck.r + 1);
+                }
             });
+
+            broadcastState(); // بث الحالة الجديدة للجميع
         }
 
-        // حركة اللاعب
-        function movePaddle(clientX, clientY) {
-            if (!isPlaying || !players[myId] || players[myId].lives <= 0) return;
+        // --- منطق العميل ---
+        canvas.addEventListener('mousemove', (e) => updateIntent(e.clientX, e.clientY));
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); updateIntent(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+
+        function updateIntent(clientX, clientY) {
+            let me = gameState.players.find(p => p.id === myId);
+            if (!me || !me.active || gameState.status !== 'playing') return;
+
             const rect = canvas.getBoundingClientRect();
-            let mx = (clientX - rect.left) * (canvas.width / rect.width);
-            let my = (clientY - rect.top) * (canvas.height / rect.height);
+            myIntent.x = (clientX - rect.left) * (canvas.width / rect.width);
+            myIntent.y = (clientY - rect.top) * (canvas.height / rect.height);
+            
+            // تحديد حركة اللاعب داخل منطقته الخاصة فقط
+            let activePlayers = gameState.players.filter(p => p.active);
+            let myIndex = activePlayers.findIndex(p => p.id === myId);
+            let segmentAngle = (Math.PI * 2) / activePlayers.length;
+            
+            let angle = Math.atan2(myIntent.y - CY, myIntent.x - CX);
+            if (angle < 0) angle += Math.PI * 2;
+            
+            let myMinAngle = myIndex * segmentAngle;
+            let myMaxAngle = (myIndex + 1) * segmentAngle;
+            
+            // حساب المسافة ومنع الخروج من الدائرة
+            let dist = Math.hypot(myIntent.x - CX, myIntent.y - CY);
+            if (dist > R - 20) dist = R - 20;
 
-            // منع اللاعب من تجاوز المنتصف أو الخروج من الدائرة
-            let dx = mx - cx, dy = my - cy;
-            let dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist > R - 20) {
-                mx = cx + (dx/dist) * (R - 20);
-                my = cy + (dy/dist) * (R - 20);
-            }
-
-            players[myId].x = mx; players[myId].y = my;
-            socket.emit('playerMoved', { type: 'paddle_update', room: myRoom, id: myId, x: mx, y: my });
+            // إرسال النية للمضيف
+            socket.emit('playerMoved', { type: 'paddle_intent', room: myRoom, id: myId, x: CX + Math.cos(angle)*dist, y: CY + Math.sin(angle)*dist });
         }
 
-        canvas.addEventListener('mousemove', (e) => movePaddle(e.clientX, e.clientY));
-        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); movePaddle(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-
-        function gameLoop() {
-            if (isHost && isPlaying) {
-                updatePhysics();
-                broadcastState(); // الهوست ينشر التحديثات باستمرار
-            }
+        function clientLoop() {
             draw();
         }
 
-        function updatePhysics() {
-            let n = activePlayerIds.length;
-            if (n <= 1) {
-                isPlaying = false;
-                document.getElementById('status').innerText = `🏆 الفائز هو: ${players[activePlayerIds[0]].name}`;
-                return;
-            }
+        function updateUI() {
+            if(gameState.status === 'playing') document.getElementById('status').innerText = "🔥 اللعبة جارية!";
+            else if(gameState.status === 'gameover') document.getElementById('status').innerText = "🏁 انتهت اللعبة!";
 
-            puck.x += puck.dx; puck.y += puck.dy;
-
-            // احتكاك الهواء
-            puck.dx *= 0.998; puck.dy *= 0.998;
-
-            // التحقق من اصطدام الطابة بحواف الدائرة (أقسام اللاعبين)
-            let dx = puck.x - cx;
-            let dy = puck.y - cy;
-            let dist = Math.sqrt(dx*dx + dy*dy);
-
-            if (dist + puck.r >= R) {
-                // تحديد زاوية الطابة لمعرفة في منطقة أي لاعب سقطت
-                let angle = Math.atan2(dy, dx);
-                if (angle < 0) angle += Math.PI * 2;
-                
-                let sliceAngle = (Math.PI * 2) / n;
-                let playerIndex = Math.floor(angle / sliceAngle);
-                let hitPlayerId = activePlayerIds[playerIndex];
-
-                // خسارة حياة
-                players[hitPlayerId].lives--;
-                
-                if (players[hitPlayerId].lives <= 0) {
-                    activePlayerIds.splice(playerIndex, 1); // إزالة اللاعب
-                }
-
-                // إعادة الطابة للمنتصف
-                puck.x = cx; puck.y = cy;
-                let newAngle = Math.random() * Math.PI * 2;
-                puck.dx = Math.cos(newAngle) * 5;
-                puck.dy = Math.sin(newAngle) * 5;
-            }
-
-            // تصادم الطابة مع المضارب
-            activePlayerIds.forEach(id => {
-                let p = players[id];
-                let pdx = puck.x - p.x, pdy = puck.y - p.y;
-                let pdist = Math.sqrt(pdx*pdx + pdy*pdy);
-                if (pdist < puck.r + 25) { // 25 هو نصف قطر المضرب
-                    let hitAngle = Math.atan2(pdy, pdx);
-                    let speed = Math.sqrt(puck.dx*puck.dx + puck.dy*puck.dy) + 2;
-                    if (speed > 12) speed = 12;
-                    puck.dx = Math.cos(hitAngle) * speed;
-                    puck.dy = Math.sin(hitAngle) * speed;
-                    puck.x = p.x + Math.cos(hitAngle) * (puck.r + 26);
-                    puck.y = p.y + Math.sin(hitAngle) * (puck.r + 26);
-                }
+            let html = "";
+            gameState.players.forEach(p => {
+                html += `<div class="player-badge" style="background:${p.color}; opacity:${p.active?1:0.3}">
+                    ${p.name} (❤️ ${p.lives})
+                </div>`;
             });
-        }
-
-        function updateStatus() {
-            let n = activePlayerIds.length;
-            if(!isPlaying && n > 1 && !isHost) {
-                document.getElementById('status').innerText = `في انتظار قيام المضيف ببدء اللعبة... (${n} لاعبين)`;
-            } else if (isPlaying) {
-                let pInfo = players[myId];
-                if (pInfo && pInfo.lives > 0) {
-                    document.getElementById('status').innerText = `أرواحك: ${'❤️'.repeat(pInfo.lives)}`;
-                } else {
-                    document.getElementById('status').innerText = `لقد خسرت 💀 (أنت الآن تشاهد)`;
-                }
-            }
+            document.getElementById('playersList').innerHTML = html;
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            let n = activePlayerIds.length;
+            
+            // رسم الساحة (الدائرة)
+            ctx.beginPath();
+            ctx.arc(CX, CY, R, 0, Math.PI * 2);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 3;
+            ctx.stroke();
 
-            if (n > 0) {
-                let sliceAngle = (Math.PI * 2) / n;
+            // رسم مناطق اللاعبين والأهداف
+            let activePlayers = gameState.players.filter(p => p.active);
+            let segmentAngle = (Math.PI * 2) / (activePlayers.length || 1);
+            
+            activePlayers.forEach((p, i) => {
+                let startAngle = i * segmentAngle;
+                let endAngle = (i + 1) * segmentAngle;
                 
-                // رسم خطوط التقسيم للحلبة
-                for (let i = 0; i < n; i++) {
-                    let angle = i * sliceAngle;
-                    ctx.beginPath();
-                    ctx.moveTo(cx, cy);
-                    ctx.lineTo(cx + Math.cos(angle) * R, cy + Math.sin(angle) * R);
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-
-                    // رسم حواف الأهداف (أقواس) بألوان اللاعبين
-                    let id = activePlayerIds[i];
-                    ctx.beginPath();
-                    ctx.arc(cx, cy, R, angle, angle + sliceAngle);
-                    ctx.strokeStyle = players[id].color;
-                    ctx.lineWidth = 6;
-                    ctx.shadowBlur = 10;
-                    ctx.shadowColor = players[id].color;
-                    ctx.stroke();
-                    ctx.shadowBlur = 0;
-                }
-            } else {
+                // خطوط التقسيم
                 ctx.beginPath();
-                ctx.arc(cx, cy, R, 0, Math.PI * 2);
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 4;
+                ctx.moveTo(CX, CY);
+                ctx.lineTo(CX + Math.cos(startAngle)*R, CY + Math.sin(startAngle)*R);
+                ctx.strokeStyle = '#222';
                 ctx.stroke();
-            }
 
-            // رسم المضارب
-            Object.values(players).forEach(p => {
-                if (p.lives > 0) {
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, 25, 0, Math.PI * 2);
-                    ctx.fillStyle = p.color;
-                    ctx.shadowBlur = 15;
-                    ctx.shadowColor = p.color;
-                    ctx.fill();
-                    
-                    // اسم اللاعب وعدد أرواحه
-                    ctx.shadowBlur = 0;
-                    ctx.fillStyle = "#fff";
-                    ctx.font = "14px Arial";
-                    ctx.textAlign = "center";
-                    ctx.fillText(`${p.name} (${p.lives})`, p.x, p.y - 35);
+                // منطقة الهدف
+                let goalSize = segmentAngle * 0.4;
+                let goalStart = startAngle + (segmentAngle - goalSize) / 2;
+                ctx.beginPath();
+                ctx.arc(CX, CY, R, goalStart, goalStart + goalSize);
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 8;
+                ctx.stroke();
+            });
+
+            // رسم اللاعبين
+            gameState.players.forEach(p => {
+                if (p.active) {
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 20, 0, Math.PI*2);
+                    ctx.fillStyle = p.color; ctx.fill();
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth=2; ctx.stroke();
                 }
             });
 
-            // رسم الطابة
-            ctx.beginPath();
-            ctx.arc(puck.x, puck.y, puck.r, 0, Math.PI * 2);
-            ctx.fillStyle = '#fff';
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#fff';
-            ctx.fill();
-            ctx.shadowBlur = 0;
+            // رسم القرص
+            if (gameState.status === 'playing') {
+                ctx.beginPath(); ctx.arc(gameState.puck.x, gameState.puck.y, gameState.puck.r, 0, Math.PI*2);
+                ctx.fillStyle = '#fff'; ctx.shadowBlur = 10; ctx.shadowColor = '#fff'; ctx.fill();
+                ctx.shadowBlur = 0; // إعادة ضبط الظل
+            }
         }
     </script>
 </body>
