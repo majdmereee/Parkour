@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>RAMA - Parkour Race Obby 3D Multiplayer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #020508;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    #canvas3d {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+    #ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px;
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+    }
+    .badge {
+      background: rgba(10, 15, 25, 0.75);
+      border: 1px solid rgba(255, 120, 0, 0.6);
+      color: #ff9d00;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: 1px;
+      box-shadow: 0 0 15px rgba(255,120,0,0.25);
+    }
+    .stats {
+      display: flex;
+      gap: 12px;
+    }
+    .stat-box {
+      background: rgba(15, 20, 30, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 6px 14px;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 10px;
+      height: 10px;
+      pointer-events: none;
+    }
+    #crosshair::before, #crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 0 4px #ff7800;
+    }
+    #crosshair::before { top: 4px; left: -8px; width: 26px; height: 2px; }
+    #crosshair::after { top: -8px; left: 4px; width: 2px; height: 26px; }
+
+    #checkpoint-banner {
+      position: absolute;
+      top: 15%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 200, 80, 0.9);
+      border: 2px solid #00ff66;
+      color: #fff;
+      padding: 10px 24px;
+      border-radius: 25px;
+      font-size: 18px;
+      font-weight: 900;
+      display: none;
+      box-shadow: 0 0 25px rgba(0,255,100,0.7);
+      text-align: center;
+      animation: popBanner 0.4s ease-out;
+    }
+    @keyframes popBanner {
+      0% { transform: translateX(-50%) scale(0.6); opacity: 0; }
+      100% { transform: translateX(-50%) scale(1); opacity: 1; }
+    }
+
+    #touch-controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    #joystick-zone {
+      position: absolute;
+      bottom: 40px;
+      left: 40px;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, rgba(20,25,35,0.4) 70%);
+      border: 2px solid rgba(255, 120, 0, 0.4);
+      pointer-events: auto;
+      touch-action: none;
+    }
+    #joystick-knob {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 55px;
+      height: 55px;
+      margin-left: -27.5px;
+      margin-top: -27.5px;
+      background: radial-gradient(circle, #ff9500 20%, #cc5200 90%);
+      border-radius: 50%;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      pointer-events: none;
+    }
+    .action-buttons {
+      position: absolute;
+      bottom: 40px;
+      right: 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      pointer-events: auto;
+    }
+    .btn-action {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      background: radial-gradient(circle, rgba(255,140,0,0.9), rgba(180,50,0,0.95));
+      color: #fff;
+      font-size: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 15px rgba(0,0,0,0.6);
+      touch-action: none;
+      cursor: pointer;
+    }
+    .btn-action:active {
+      transform: scale(0.92);
+      border-color: #ff9d00;
+      box-shadow: 0 0 20px #ff9d00;
+    }
+
+    #start-modal, #end-modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(10,15,25,0.95) 0%, rgba(2,5,10,0.99) 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      z-index: 100;
+      text-align: center;
+      padding: 20px;
+    }
+    .title {
+      font-size: 38px;
+      font-weight: 900;
+      color: #ff9500;
+      text-shadow: 0 0 25px rgba(255, 149, 0, 0.7);
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 15px;
+      color: #ccc;
+      max-width: 500px;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 320px;
+      margin-bottom: 24px;
+    }
+    .input-field {
+      width: 100%;
+      padding: 12px 18px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 149, 0, 0.5);
+      background: rgba(20, 25, 35, 0.85);
+      color: #fff;
+      font-size: 16px;
+      text-align: center;
+      outline: none;
+      transition: 0.3s border-color;
+    }
+    .input-field:focus {
+      border-color: #ffaa00;
+      box-shadow: 0 0 10px rgba(255, 170, 0, 0.4);
+    }
+    .btn-play {
+      padding: 14px 48px;
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+      background: linear-gradient(135deg, #ff7800, #b83200);
+      border: none;
+      border-radius: 30px;
+      box-shadow: 0 8px 25px rgba(255,100,0,0.6);
+      cursor: pointer;
+      transition: 0.2s transform;
+    }
+    .btn-play:active {
+      transform: scale(0.95);
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+
+  <div id="start-modal">
+    <div class="title">سباق الباركور: أونلاين</div>
+    <div class="subtitle">
+      أدخل اسمك وكود الغرفة لتلعب مع صديقك في نفس المضمار مباشرة!
+    </div>
+    <div class="form-group">
+      <input type="text" id="player-name" class="input-field" placeholder="اسمك داخل اللعبة" maxlength="15" />
+      <input type="text" id="room-code" class="input-field" placeholder="كود الغرفة (مثال: 1234)" maxlength="10" />
+    </div>
+    <button class="btn-play" id="btn-start">دخول السباق</button>
+  </div>
+
+  <div id="end-modal" style="display:none;">
+    <div class="title" id="end-title">أنهيت السباق بنجاح!</div>
+    <div class="subtitle" id="end-desc"></div>
+    <button class="btn-play" onclick="location.reload()">إعادة التحدي</button>
+  </div>
+
+  <canvas id="canvas3d"></canvas>
+
+  <div id="ui-layer">
+    <div class="top-bar">
+      <div class="badge" id="stage-badge">المرحلة: 1 / 10</div>
+      <div class="stats">
+        <div class="stat-box">
+          <span>الغرفة:</span>
+          <b id="room-display" style="color: #00ffcc;">-</b>
+        </div>
+        <div class="stat-box">
+          <span>الوقت:</span>
+          <b id="timer-display" style="color: #ffaa00;">00:00.0</b>
+        </div>
+        <div class="stat-box">
+          <span>السقوط:</span>
+          <b id="fall-count" style="color: #ff4444;">0</b>
+        </div>
+      </div>
+    </div>
+
+    <div id="checkpoint-banner">تم حفظ نقطة التقدم! ✅</div>
+    <div id="crosshair"></div>
+  </div>
+
+  <div id="touch-controls">
+    <div id="joystick-zone">
+      <div id="joystick-knob"></div>
+    </div>
+    <div class="action-buttons">
+      <div class="btn-action" id="btn-jump">⤴</div>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       GAME STATE & NETWORK CONTROLLER
+       ========================================================================== */
+    const State = {
+      player: {
+        name: 'Player',
+        room: 'default'
+      }
+    };
+
+    const NetworkController = {
+      socket: null,
+      SERVER_URL: 'https://render-kr1o.onrender.com/',
+      
+      init() {
+        try {
+          this.socket = io(this.SERVER_URL, { transports: ['websocket'] });
+          
+          this.socket.on('connect', () => {
+            console.log('Connected to server, ID:', this.socket.id);
+            this.emit('join_room', { name: State.player.name });
+          });
+          
+          this.socket.on('otherPlayerMoved', (data) => this.processIncoming(data));
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      
+      emit(type, payload) {
+        if (this.socket?.connected) {
+          this.socket.emit('playerMoved', { type, room: State.player.room, senderId: this.socket.id, ...payload });
+        }
+      },
+      
+      processIncoming(data) {
+        if (data.room !== State.player.room) return;
+        if (this.socket && data.senderId === this.socket.id) return;
+        
+        switch (data.type) {
+          case 'transform':
+            RemotePlayersManager.updatePlayer(data.senderId || 'opponent', data.name, data.pos, data.rotY);
+            break;
+          case 'win_game':
+            if (!isGameOver) {
+              isGameOver = true;
+              playSound('win');
+              document.getElementById('end-title').innerText = `فاز المنافس: ${data.name}! 🏆`;
+              document.getElementById('end-modal').style.display = 'flex';
+              document.getElementById('end-desc').innerHTML = `وصل <b>${data.name}</b> إلى خط النهاية قبلك!<br>حظ أوفر في الجولة القادمة.`;
+            }
+            break;
+        }
+      }
+    };
+
+    /* ==========================================================================
+       REMOTE PLAYERS MANAGER
+       ========================================================================== */
+    const RemotePlayersManager = {
+      players: {},
+
+      createNameTag(name) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.roundRect(0, 0, 256, 64, 16);
+        ctx.fill();
+        ctx.fillStyle = '#ffaa00';
+        ctx.font = 'bold 30px "Segoe UI", Tahoma, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(name, 128, 32);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.scale.set(2.4, 0.6, 1);
+        sprite.position.y = 1.6;
+        return sprite;
+      },
+
+      createRemoteMesh(name) {
+        const group = new THREE.Group();
+
+        // جسم اللاعب
+        const bodyGeo = new THREE.CylinderGeometry(0.35, 0.35, 1.2, 16);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00d4ff, roughness: 0.3, metalness: 0.3 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 0;
+        group.add(body);
+
+        // رأس اللاعب
+        const headGeo = new THREE.SphereGeometry(0.3, 16, 16);
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.y = 0.85;
+        group.add(head);
+
+        // شارة الاسم
+        const nameTag = this.createNameTag(name);
+        group.add(nameTag);
+
+        scene.add(group);
+        return group;
+      },
+
+      updatePlayer(id, name, pos, rotY) {
+        if (!this.players[id]) {
+          this.players[id] = {
+            mesh: this.createRemoteMesh(name || 'لاعب'),
+            targetPos: new THREE.Vector3(pos.x, pos.y, pos.z),
+            targetRotY: rotY || 0
+          };
+        }
+        this.players[id].targetPos.set(pos.x, pos.y, pos.z);
+        this.players[id].targetRotY = rotY || 0;
+      },
+
+      interpolate() {
+        for (const id in this.players) {
+          const p = this.players[id];
+          p.mesh.position.lerp(p.targetPos, 0.25);
+          p.mesh.rotation.y += (p.targetRotY - p.mesh.rotation.y) * 0.25;
+        }
+      }
+    };
+
+    /* ==========================================================================
+       AUDIO ENGINE
+       ========================================================================== */
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let actx = null;
+
+    function initAudio() {
+      if (!actx) actx = new AudioCtx();
+      if (actx.state === 'suspended') actx.resume();
+    }
+
+    function playSound(type) {
+      if (!actx) return;
+      const t = actx.currentTime;
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.connect(gain);
+      gain.connect(actx.destination);
+
+      if (type === 'jump') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(150, t);
+        osc.frequency.exponentialRampToValueAtTime(320, t + 0.12);
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.linearRampToValueAtTime(0.01, t + 0.12);
+        osc.start(t);
+        osc.stop(t + 0.12);
+      } else if (type === 'checkpoint') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.setValueAtTime(660, t + 0.1);
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.linearRampToValueAtTime(0.01, t + 0.25);
+        osc.start(t);
+        osc.stop(t + 0.25);
+      } else if (type === 'fall') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(250, t);
+        osc.exponentialRampToValueAtTime(60, t + 0.3);
+        gain.gain.setValueAtTime(0.4, t);
+        gain.gain.linearRampToValueAtTime(0.01, t + 0.3);
+        osc.start(t);
+        osc.stop(t + 0.3);
+      } else if (type === 'win') {
+        const notes = [261.63, 329.63, 392.00, 523.25, 659.25];
+        notes.forEach((freq, idx) => {
+          const o = actx.createOscillator();
+          const g = actx.createGain();
+          o.connect(g);
+          g.connect(actx.destination);
+          o.type = 'sine';
+          o.frequency.value = freq;
+          g.gain.setValueAtTime(0.25, t + idx * 0.12);
+          g.gain.linearRampToValueAtTime(0.01, t + idx * 0.12 + 0.25);
+          o.start(t + idx * 0.12);
+          o.stop(t + idx * 0.12 + 0.25);
+        });
+      }
+    }
+
+    /* ==========================================================================
+       SCENE, LIGHTS & GRAPHICS
+       ========================================================================== */
+    const canvas = document.getElementById('canvas3d');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x7da4cf);
+    scene.fog = new THREE.FogExp2(0x7da4cf, 0.01);
+
+    const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 800);
+    const cameraHolder = new THREE.Group();
+    cameraHolder.position.set(0, 4, 0);
+    cameraHolder.add(camera);
+    scene.add(cameraHolder);
+
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3d4a36, 0.65);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff1cf, 1.3);
+    sunLight.position.set(60, 120, 50);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 600;
+    const d = 100;
+    sunLight.shadow.camera.left = -d;
+    sunLight.shadow.camera.right = d;
+    sunLight.shadow.camera.top = d;
+    sunLight.shadow.camera.bottom = -d;
+    sunLight.shadow.bias = -0.0005;
+    scene.add(sunLight);
+
+    const sunMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(8, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffea78 })
+    );
+    sunMesh.position.set(160, 260, 100);
+    scene.add(sunMesh);
+
+    const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+    for(let i = 0; i < 40; i++) {
+      const cloud = new THREE.Mesh(new THREE.BoxGeometry(20 + Math.random()*20, 2, 20 + Math.random()*20), cloudMat);
+      cloud.position.set((Math.random() - 0.5) * 400, -15 - Math.random() * 10, i * 20);
+      scene.add(cloud);
+    }
+
+    /* ==========================================================================
+       PARKOUR WORLD GENERATOR (10 STAGES)
+       ========================================================================== */
+    const platformBoxes = [];
+    const hazards = [];
+    const checkpoints = [];
+    const dynamicObjects = [];
+
+    const STAGE_COLORS = [
+      0x00cc88, 0x0088ff, 0xff5500, 0xaa00ff, 0xffaa00,
+      0x00e5ff, 0xff0055, 0x66bb6a, 0xff1744, 0xffd700
+    ];
+
+    function createPlatform(x, y, z, w, h, d, color = 0xeeeeee) {
+      const geom = new THREE.BoxGeometry(w, h, d);
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.2 });
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(x, y, z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+
+      const box = new THREE.Box3().setFromObject(mesh);
+      platformBoxes.push({ box, mesh, isMoving: false });
+      return mesh;
+    }
+
+    function createHazard(x, y, z, w, h, d) {
+      const geom = new THREE.BoxGeometry(w, h, d);
+      const mat = new THREE.MeshBasicMaterial({ color: 0xff0033 });
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(x, y, z);
+      scene.add(mesh);
+      hazards.push({ box: new THREE.Box3().setFromObject(mesh), mesh });
+      return mesh;
+    }
+
+    function createCheckpoint(stageNum, x, y, z) {
+      createPlatform(x, y, z, 7, 0.8, 7, 0x222831);
+      
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.08, 3.5),
+        new THREE.MeshStandardMaterial({ color: 0xcccccc })
+      );
+      pole.position.set(x - 2.8, y + 1.75, z);
+      scene.add(pole);
+
+      const flag = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 0.7, 0.05),
+        new THREE.MeshBasicMaterial({ color: 0xffaa00 })
+      );
+      flag.position.set(x - 2.2, y + 3, z);
+      scene.add(flag);
+
+      checkpoints.push({
+        stage: stageNum,
+        spawnPos: new THREE.Vector3(x, y + 2.0, z),
+        triggerBox: new THREE.Box3(new THREE.Vector3(x - 3.5, y, z - 3.5), new THREE.Vector3(x + 3.5, y + 4, z + 3.5)),
+        flag
+      });
+    }
+
+    let curZ = 0;
+    let curY = 0;
+
+    createCheckpoint(1, 0, curY, curZ);
+    curZ += 8;
+    for (let i = 0; i < 5; i++) {
+      const xOff = (i % 2 === 0 ? -1.5 : 1.5);
+      createPlatform(xOff, curY, curZ, 2.5, 0.8, 2.5, STAGE_COLORS[0]);
+      curZ += 5.5;
+    }
+
+    createCheckpoint(2, 0, curY, curZ);
+    curZ += 7;
+    for (let i = 0; i < 4; i++) {
+      const cyl = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.8, 0.8, 6, 16),
+        new THREE.MeshStandardMaterial({ color: STAGE_COLORS[1], roughness: 0.3 })
+      );
+      cyl.rotation.x = Math.PI / 2;
+      cyl.position.set((i % 2 === 0 ? -1.2 : 1.2), curY, curZ);
+      cyl.castShadow = true; cyl.receiveShadow = true;
+      scene.add(cyl);
+      platformBoxes.push({ box: new THREE.Box3().setFromObject(cyl), mesh: cyl });
+      curZ += 6;
+    }
+
+    createCheckpoint(3, 0, curY, curZ);
+    curZ += 8;
+    for (let i = 0; i < 4; i++) {
+      createPlatform(0, curY, curZ, 4, 0.8, 5, 0x333333);
+      createHazard(0, curY + 0.6, curZ, 3.8, 0.25, 0.4);
+      curZ += 7;
+    }
+
+    createCheckpoint(4, 0, curY, curZ);
+    curZ += 7;
+    for (let i = 0; i < 6; i++) {
+      curY += 0.8;
+      createPlatform((i % 2 === 0 ? -2.2 : 2.2), curY, curZ, 1.8, 0.6, 1.8, STAGE_COLORS[3]);
+      curZ += 5;
+    }
+
+    createCheckpoint(5, 0, curY, curZ);
+    curZ += 7;
+    for (let i = 0; i < 5; i++) {
+      curY += 1.0;
+      createPlatform(0, curY, curZ, 3.5, 0.5, 1.5, STAGE_COLORS[4]);
+      curZ += 4.5;
+    }
+
+    createCheckpoint(6, 0, curY, curZ);
+    curZ += 8;
+    for (let i = 0; i < 4; i++) {
+      const movingPlat = createPlatform(0, curY, curZ, 3, 0.8, 3, STAGE_COLORS[5]);
+      const initialX = movingPlat.position.x;
+      const speed = 2.0 + i * 0.4;
+      const range = 4.5;
+      dynamicObjects.push({
+        update: (time) => {
+          movingPlat.position.x = initialX + Math.sin(time * speed) * range;
+        },
+        mesh: movingPlat
+      });
+      curZ += 7.5;
+    }
+
+    createCheckpoint(7, 0, curY, curZ);
+    curZ += 8;
+    for (let i = 0; i < 3; i++) {
+      createPlatform(0, curY, curZ, 4.5, 0.8, 4.5, 0x222222);
+      const spinner = createHazard(0, curY + 0.7, curZ, 6.0, 0.3, 0.5);
+      dynamicObjects.push({
+        update: () => {
+          spinner.rotation.y += 0.04;
+        },
+        mesh: spinner,
+        isSpinner: true
+      });
+      curZ += 9;
+    }
+
+    createCheckpoint(8, 0, curY, curZ);
+    curZ += 7;
+    for (let i = 0; i < 5; i++) {
+      const size = Math.max(1.0, 2.4 - i * 0.3);
+      createPlatform((i % 2 === 0 ? 1.5 : -1.5), curY, curZ, size, 4, size, STAGE_COLORS[7]);
+      curZ += 5.5;
+    }
+
+    createCheckpoint(9, 0, curY, curZ);
+    curZ += 8;
+    for (let i = 0; i < 3; i++) {
+      createPlatform(0, curY, curZ, 4, 0.8, 7, 0x111111);
+      const movingLaser = createHazard(0, curY + 0.6, curZ, 3.8, 0.25, 0.3);
+      const centerZ = curZ;
+      dynamicObjects.push({
+        update: (time) => {
+          movingLaser.position.z = centerZ + Math.sin(time * 3 + i) * 2.8;
+        },
+        mesh: movingLaser
+      });
+      curZ += 9.5;
+    }
+
+    createCheckpoint(10, 0, curY, curZ);
+    curZ += 8;
+    const finishPlatform = createPlatform(0, curY, curZ, 12, 1.2, 12, 0xffd700);
+
+    const victoryRing = new THREE.Mesh(
+      new THREE.TorusGeometry(3, 0.2, 16, 50),
+      new THREE.MeshBasicMaterial({ color: 0x00ffff })
+    );
+    victoryRing.position.set(0, curY + 4, curZ);
+    scene.add(victoryRing);
+
+    /* ==========================================================================
+       GAMEPLAY & MULTIPLAYER EMIT
+       ========================================================================== */
+    let currentCheckpointIndex = 0;
+    let falls = 0;
+    let raceStartTime = 0;
+    let isRacing = false;
+    let isGameOver = false;
+    let lastNetworkEmitTime = 0;
+
+    const timerElem = document.getElementById('timer-display');
+    const fallElem = document.getElementById('fall-count');
+    const stageBadge = document.getElementById('stage-badge');
+    const banner = document.getElementById('checkpoint-banner');
+
+    function respawnPlayer() {
+      const cp = checkpoints[currentCheckpointIndex];
+      cameraHolder.position.copy(cp.spawnPos);
+      playerVelocityY = 0;
+      playSound('fall');
+    }
+
+    function triggerCheckpoint(idx) {
+      if (idx > currentCheckpointIndex) {
+        currentCheckpointIndex = idx;
+        stageBadge.innerText = `المرحلة: ${idx + 1} / 10`;
+        checkpoints[idx].flag.material.color.setHex(0x00ff66);
+        playSound('checkpoint');
+        banner.style.display = 'block';
+        setTimeout(() => { banner.style.display = 'none'; }, 1500);
+      }
+    }
+
+    const keys = {};
+    window.addEventListener('keydown', (e) => { keys[e.code] = true; });
+    window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+    window.addEventListener('click', (e) => {
+      if (document.getElementById('start-modal').style.display === 'none' && !isGameOver) {
+        if (document.pointerLockElement !== canvas && e.target.tagName !== 'BUTTON' && !e.target.classList.contains('btn-action') && !e.target.classList.contains('input-field')) {
+          canvas.requestPointerLock();
+        }
+      }
+    });
+
+    let yaw = 0, pitch = 0;
+    window.addEventListener('mousemove', (e) => {
+      if (document.pointerLockElement === canvas && !isGameOver) {
+        yaw -= e.movementX * 0.0024;
+        pitch -= e.movementY * 0.0024;
+        pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
+      }
+    });
+
+    const joystickZone = document.getElementById('joystick-zone');
+    const joystickKnob = document.getElementById('joystick-knob');
+    let joystickActive = false;
+    let joyMoveX = 0, joyMoveY = 0;
+    let joyTouchId = null;
+
+    joystickZone.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      joyTouchId = touch.identifier;
+      joystickActive = true;
+      handleJoystickTouch(touch);
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === joyTouchId) handleJoystickTouch(touch);
+      }
+    }, { passive: false });
+
+    const endJoystick = (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === joyTouchId) {
+          joystickActive = false;
+          joyTouchId = null;
+          joyMoveX = 0; joyMoveY = 0;
+          joystickKnob.style.transform = `translate(0px, 0px)`;
+        }
+      }
+    };
+    window.addEventListener('touchend', endJoystick);
+    window.addEventListener('touchcancel', endJoystick);
+
+    function handleJoystickTouch(touch) {
+      const rect = joystickZone.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      let dx = touch.clientX - centerX;
+      let dy = touch.clientY - centerY;
+      const maxRadius = rect.width / 2;
+      const dist = Math.hypot(dx, dy);
+      if (dist > maxRadius) {
+        dx = (dx / dist) * maxRadius;
+        dy = (dy / dist) * maxRadius;
+      }
+      joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+      joyMoveX = dx / maxRadius;
+      joyMoveY = -dy / maxRadius;
+    }
+
+    let lookTouchId = null;
+    let lastLookX = 0, lastLookY = 0;
+
+    window.addEventListener('touchstart', (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.clientX > window.innerWidth / 2 && lookTouchId === null) {
+          lookTouchId = t.identifier;
+          lastLookX = t.clientX;
+          lastLookY = t.clientY;
+        }
+      }
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier === lookTouchId) {
+          const dx = t.clientX - lastLookX;
+          const dy = t.clientY - lastLookY;
+          yaw -= dx * 0.005;
+          pitch -= dy * 0.005;
+          pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
+          lastLookX = t.clientX;
+          lastLookY = t.clientY;
+        }
+      }
+    });
+
+    const endLookTouch = (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === lookTouchId) lookTouchId = null;
+      }
+    };
+    window.addEventListener('touchend', endLookTouch);
+    window.addEventListener('touchcancel', endLookTouch);
+
+    function triggerJump() {
+      if (isGrounded) {
+        playerVelocityY = 8.5;
+        isGrounded = false;
+        playSound('jump');
+      }
+    }
+
+    document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      triggerJump();
+    });
+
+    document.getElementById('btn-start').addEventListener('click', () => {
+      const nameInput = document.getElementById('player-name').value.trim();
+      const roomInput = document.getElementById('room-code').value.trim();
+
+      if (!roomInput) {
+        alert('يرجى إدخال كود الغرفة!');
+        return;
+      }
+
+      State.player.name = nameInput || 'لاعب ' + Math.floor(Math.random() * 1000);
+      State.player.room = roomInput;
+
+      document.getElementById('room-display').innerText = State.player.room;
+      initAudio();
+
+      NetworkController.init();
+
+      document.getElementById('start-modal').style.display = 'none';
+      cameraHolder.position.copy(checkpoints[0].spawnPos);
+      raceStartTime = performance.now();
+      isRacing = true;
+    });
+
+    /* ==========================================================================
+       MAIN LOOP & PHYSICS
+       ========================================================================== */
+    let lastTime = performance.now();
+    let playerVelocityY = 0;
+    let isGrounded = false;
+
+    function animate(currentTime) {
+      requestAnimationFrame(animate);
+      const delta = Math.min((currentTime - lastTime) / 1000, 0.1);
+      lastTime = currentTime;
+
+      const tSec = currentTime * 0.001;
+
+      dynamicObjects.forEach(obj => obj.update(tSec));
+
+      for (let pb of platformBoxes) pb.box.setFromObject(pb.mesh);
+      for (let hz of hazards) hz.box.setFromObject(hz.mesh);
+
+      // ترقية وتحديث مواقع اللاعبين الآخرين بسلاسة
+      RemotePlayersManager.interpolate();
+
+      if (isRacing && !isGameOver) {
+        const elapsed = (currentTime - raceStartTime) / 1000;
+        const mins = Math.floor(elapsed / 60);
+        const secs = Math.floor(elapsed % 60);
+        const ms = Math.floor((elapsed % 1) * 10);
+        timerElem.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms}`;
+
+        cameraHolder.rotation.y = yaw;
+        camera.rotation.x = pitch;
+
+        let moveForward = 0;
+        let moveSide = 0;
+
+        if (keys['KeyW'] || keys['ArrowUp']) moveForward += 1;
+        if (keys['KeyS'] || keys['ArrowDown']) moveForward -= 1;
+        if (keys['KeyA'] || keys['ArrowLeft']) moveSide -= 1;
+        if (keys['KeyD'] || keys['ArrowRight']) moveSide += 1;
+
+        if (joystickActive) {
+          moveForward += joyMoveY;
+          moveSide += joyMoveX;
+        }
+
+        if (keys['Space']) triggerJump();
+
+        const speed = 7.5;
+        const moveDir = new THREE.Vector3(moveSide, 0, -moveForward).normalize();
+
+        if (moveDir.lengthSq() > 0.01) {
+          moveDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+          cameraHolder.position.x += moveDir.x * speed * delta;
+          cameraHolder.position.z += moveDir.z * speed * delta;
+        }
+
+        playerVelocityY -= 21.0 * delta;
+        cameraHolder.position.y += playerVelocityY * delta;
+
+        const feetY = cameraHolder.position.y - 1.6;
+        const playerRadius = 0.4;
+        let onPlatform = false;
+
+        for (let pb of platformBoxes) {
+          const b = pb.box;
+          if (
+            cameraHolder.position.x >= b.min.x - playerRadius &&
+            cameraHolder.position.x <= b.max.x + playerRadius &&
+            cameraHolder.position.z >= b.min.z - playerRadius &&
+            cameraHolder.position.z <= b.max.z + playerRadius
+          ) {
+            if (feetY <= b.max.y && feetY >= b.max.y - 0.7 && playerVelocityY <= 0) {
+              cameraHolder.position.y = b.max.y + 1.6;
+              playerVelocityY = 0;
+              isGrounded = true;
+              onPlatform = true;
+              break;
+            }
+          }
+        }
+
+        if (!onPlatform && isGrounded && playerVelocityY === 0) {
+          isGrounded = false;
+        }
+
+        const playerBox = new THREE.Box3(
+          new THREE.Vector3(cameraHolder.position.x - 0.3, cameraHolder.position.y - 1.6, cameraHolder.position.z - 0.3),
+          new THREE.Vector3(cameraHolder.position.x + 0.3, cameraHolder.position.y + 0.2, cameraHolder.position.z + 0.3)
+        );
+
+        for (let hz of hazards) {
+          if (hz.box.intersectsBox(playerBox)) {
+            falls++;
+            fallElem.innerText = falls;
+            respawnPlayer();
+            break;
+          }
+        }
+
+        if (cameraHolder.position.y < -12) {
+          falls++;
+          fallElem.innerText = falls;
+          respawnPlayer();
+        }
+
+        checkpoints.forEach((cp, idx) => {
+          if (cp.triggerBox.containsPoint(cameraHolder.position)) {
+            triggerCheckpoint(idx);
+          }
+        });
+
+        // إرسال الإحداثيات للسيرفر بمعدل 20 مرة في الثانية (كل 50ms)
+        if (currentTime - lastNetworkEmitTime > 50) {
+          NetworkController.emit('transform', {
+            name: State.player.name,
+            pos: {
+              x: Number(cameraHolder.position.x.toFixed(2)),
+              y: Number((cameraHolder.position.y - 1.0).toFixed(2)),
+              z: Number(cameraHolder.position.z.toFixed(2))
+            },
+            rotY: Number(yaw.toFixed(2))
+          });
+          lastNetworkEmitTime = currentTime;
+        }
+
+        // خط النهاية والفوز
+        if (cameraHolder.position.distanceTo(finishPlatform.position) < 4.5) {
+          isGameOver = true;
+          playSound('win');
+          NetworkController.emit('win_game', { name: State.player.name });
+
+          document.getElementById('end-title').innerText = 'أنهيت السباق بنجاح! 🏆';
+          document.getElementById('end-modal').style.display = 'flex';
+          document.getElementById('end-desc').innerHTML = `
+            قطعت كافة مراحل الباركور العشرة!<br><br>
+            ⏱️ الزمن النهائي: <b>${timerElem.innerText}</b><br>
+            💥 عدد مرات السقوط: <b>${falls}</b>
+          `;
+        }
+      }
+
+      victoryRing.rotation.x += 0.02;
+      victoryRing.rotation.y += 0.03;
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
