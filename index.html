@@ -3,605 +3,362 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>نيون هوكي - خماسي الأبعاد 🏑</title>
+    <title>نيون هوكي - مستطيل ديناميكي 🏑</title>
     <style>
-        :root {
-            --bg-color: #0d0d12;
-            --panel-bg: #1a1a24;
-            --text-color: #e0e0e0;
-        }
+        :root { --bg-color: #050508; --panel-bg: #111118; --text-color: #e0e0e0; }
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; touch-action: none; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-color); color: var(--text-color); overflow: hidden; touch-action: none; width: 100vw; height: 100vh; }
         
-        .panel { background: var(--panel-bg); padding: 30px; border-radius: 20px; box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), inset 0 0 10px rgba(255, 255, 255, 0.05); text-align: center; width: 90%; max-width: 500px; z-index: 10; position: relative; }
-        h1 { font-size: 2.5em; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; }
-        .neon-text { text-shadow: 0 0 10px currentColor, 0 0 20px currentColor; }
+        /* واجهات المستخدم */
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; pointer-events: none; }
+        .panel { background: rgba(17, 17, 24, 0.9); padding: 30px; border-radius: 15px; border: 1px solid #333; box-shadow: 0 0 30px rgba(0,0,0,0.8); text-align: center; width: 90%; max-width: 400px; pointer-events: auto; backdrop-filter: blur(5px); }
+        h1 { color: #00ffcc; text-shadow: 0 0 10px #00ffcc; margin-bottom: 20px; font-size: 2em; }
         
-        .input-group { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
-        input { padding: 15px; border: 2px solid #333; background: #111; color: #fff; border-radius: 10px; font-size: 1.1em; text-align: center; outline: none; transition: border 0.3s; }
-        input:focus { border-color: #00ffcc; box-shadow: 0 0 10px rgba(0, 255, 204, 0.3); }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #444; background: #000; color: #fff; border-radius: 8px; text-align: center; outline: none; font-size: 1.1em; }
+        input:focus { border-color: #00ffcc; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; font-size: 1.2em; cursor: pointer; transition: 0.2s; background: #00ffcc; color: #000; margin-top: 10px; }
+        button:active { transform: scale(0.95); }
+        .btn-start { background: #ffcc00; display: none; }
+
+        .score-board { position: absolute; top: 10px; left: 0; width: 100%; display: flex; justify-content: center; gap: 20px; z-index: 5; pointer-events: none; flex-wrap: wrap; }
+        .score-item { font-size: 1.2em; font-weight: bold; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 20px; }
+
+        canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
         
-        button { padding: 15px 25px; border: none; border-radius: 10px; font-weight: bold; font-size: 1.2em; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; color: #111; }
-        .btn-primary { background: #00ffcc; box-shadow: 0 0 15px #00ffcc; width: 100%; }
-        .btn-start { background: #ffcc00; box-shadow: 0 0 15px #ffcc00; display: none; margin-top: 15px; width: 100%; }
-        button:hover { transform: translateY(-2px); filter: brightness(1.2); }
-        button:active { transform: translateY(1px); }
-
-        #lobbyArea, #gameArea { display: flex; flex-direction: column; align-items: center; width: 100%; }
-        #gameArea { display: none; height: 100vh; justify-content: center; position: relative; }
-        
-        .players-list { margin-top: 20px; text-align: right; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; min-height: 100px; }
-        .player-item { padding: 8px; margin: 5px 0; border-radius: 5px; font-weight: bold; display: flex; justify-content: space-between; }
-
-        canvas { background: radial-gradient(circle, #1a1a24 0%, #0d0d12 100%); border-radius: 50%; box-shadow: 0 0 50px rgba(0,0,0,0.8); max-height: 95vh; max-width: 95vw; object-fit: contain; }
-
-        .score-board { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-around; pointer-events: none; z-index: 5; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 20px; flex-wrap: wrap; }
-        .score-item { font-size: 1.2em; font-weight: bold; margin: 0 10px; }
-
-        #statusText { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2em; font-weight: bold; color: #fff; text-shadow: 0 0 20px #000; pointer-events: none; z-index: 20; opacity: 0; transition: opacity 0.5s; }
+        /* عصا التحكم (Joystick) */
+        #joyBase { position: absolute; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; z-index: 20; display: none; pointer-events: none; transform: translate(-50%, -50%); }
+        #joyStick { position: absolute; width: 40px; height: 40px; background: rgba(0, 255, 204, 0.6); border-radius: 50%; top: 30px; left: 30px; box-shadow: 0 0 15px #00ffcc; pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <!-- واجهة الدخول وغرفة الانتظار -->
-    <div id="loginArea" class="panel">
-        <h1 class="neon-text" style="color: #00ffcc;">نيون هوكي 5X</h1>
-        <p style="color: #aaa; margin-bottom: 20px;">تحدى حتى 4 لاعبين في نفس الوقت!</p>
+    <div class="score-board" id="scoreBoard"></div>
+
+    <div class="overlay" id="uiOverlay">
+        <div class="panel" id="loginPanel">
+            <h1>طاولة بلياردو نيون 🏑</h1>
+            <input type="text" id="playerName" placeholder="الاسم" required maxlength="10">
+            <input type="text" id="roomCode" placeholder="رقم الغرفة" required>
+            <button onclick="GameNetwork.joinRoom()">دخول الغرفة</button>
+        </div>
         
-        <div id="joinForm">
-            <div class="input-group">
-                <input type="text" id="playerName" placeholder="أدخل اسمك..." required maxlength="12">
-                <input type="text" id="roomCode" placeholder="رقم الغرفة (مثال: 99)" required>
-            </div>
-            <button onclick="GameNetwork.joinRoom()" class="btn-primary">دخول الغرفة</button>
-        </div>
-
-        <div id="lobbyView" style="display: none;">
-            <h2 style="color: #ff0055; margin-bottom: 10px;">الغرفة: <span id="lblRoomCode"></span></h2>
-            <p id="lblHostStatus" style="color: #00ffcc; font-size: 0.9em;"></p>
-            <div class="players-list" id="playersList">
-                <!-- يتم إضافة اللاعبين هنا -->
-            </div>
-            <button id="btnStartGame" onclick="GameNetwork.hostStartGame()" class="btn-start">🚀 بدء اللعبة</button>
+        <div class="panel" id="lobbyPanel" style="display: none;">
+            <h2 style="color: #ff0055;">غرفة: <span id="lblRoom"></span></h2>
+            <p id="lblStatus" style="color: #aaa; margin: 10px 0;"></p>
+            <div id="playersList" style="margin: 15px 0; text-align: right; background: #000; padding: 10px; border-radius: 8px;"></div>
+            <button id="btnStartGame" class="btn-start" onclick="GameNetwork.startGame()">بدء اللعبة 🚀</button>
         </div>
     </div>
 
-    <!-- مساحة اللعبة -->
-    <div id="gameArea">
-        <div class="score-board" id="scoreBoard"></div>
-        <canvas id="gameCanvas" width="1000" height="1000"></canvas>
-        <div id="statusText"></div>
-    </div>
+    <!-- عصا التحكم -->
+    <div id="joyBase"><div id="joyStick"></div></div>
+
+    <canvas id="gameCanvas"></canvas>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
-        // ==========================================
-        // 1. الإعدادات والثوابت (Configuration)
-        // ==========================================
         const CONFIG = {
-            SERVER_URL: 'https://render-kr1o.onrender.com/',
-            CANVAS_SIZE: 1000,
-            CENTER: { x: 500, y: 500 },
-            ARENA_RADIUS: 450,
-            PUCK_RADIUS: 18,
-            PADDLE_RADIUS: 35,
-            MAX_PLAYERS: 5,
-            GOAL_SIZE_RATIO: 0.4, // نسبة حجم المرمى من طول الضلع
-            COLORS: [
-                '#00ffcc', // أزرق سماوي
-                '#ff0055', // أحمر نيون
-                '#ffcc00', // أصفر
-                '#33ff00', // أخضر
-                '#cc00ff'  // بنفسجي
-            ]
+            SERVER: 'https://render-kr1o.onrender.com/', // السيرفر الوسيط
+            COLORS: ['#00ffcc', '#ff0055', '#ffcc00', '#33ff00', '#cc00ff'],
+            PUCK_R: 15, PADDLE_R: 30, SPEED: 800, MAX_PLAYERS: 5
         };
 
-        // ==========================================
-        // 2. حالة اللعبة المركزية (Game State)
-        // ==========================================
         const State = {
-            room: '',
-            me: { id: null, name: '', color: '', roleIndex: -1, isHost: false },
-            players: [], // مصفوفة اللاعبين المتصلين
-            isPlaying: false,
-            puck: { x: 500, y: 500, dx: 0, dy: 0, speed: 0 },
-            paddles: {}, // إحداثيات مضارب اللاعبين
-            scores: {},
-            particles: [],
-            trails: []
+            me: { id: null, isHost: false },
+            players: [], room: '', isPlaying: false,
+            puck: { x: 0, y: 0, dx: 0, dy: 0 },
+            paddles: {}, scores: {},
+            boardSegments: [] // الحواف والأهداف الديناميكية
         };
 
-        // ==========================================
-        // 3. أدوات الرياضيات والفيزياء المساعدة (Math Utils)
-        // ==========================================
-        const MathUtils = {
-            distance: (p1, p2) => Math.hypot(p2.x - p1.x, p2.y - p1.y),
-            angle: (p1, p2) => Math.atan2(p2.y - p1.y, p2.x - p1.x),
-            // حساب رؤوس المضلع الخماسي
-            getPolygonVertices: (sides, radius, center) => {
-                let vertices = [];
-                for (let i = 0; i < sides; i++) {
-                    let angle = (i * 2 * Math.PI / sides) - (Math.PI / 2); // نبدأ من الأعلى
-                    vertices.push({
-                        x: center.x + radius * Math.cos(angle),
-                        y: center.y + radius * Math.sin(angle)
+        const Joy = {
+            active: false, baseX: 0, baseY: 0, nx: 0, ny: 0,
+            init: () => {
+                const b = document.getElementById('joyBase');
+                const s = document.getElementById('joyStick');
+                
+                window.addEventListener('touchstart', e => {
+                    if (!State.isPlaying) return;
+                    Joy.active = true;
+                    Joy.baseX = e.touches[0].clientX; Joy.baseY = e.touches[0].clientY;
+                    b.style.display = 'block';
+                    b.style.left = Joy.baseX + 'px'; b.style.top = Joy.baseY + 'px';
+                    s.style.transform = `translate(0px, 0px)`;
+                });
+                
+                window.addEventListener('touchmove', e => {
+                    if (!Joy.active) return;
+                    let dx = e.touches[0].clientX - Joy.baseX;
+                    let dy = e.touches[0].clientY - Joy.baseY;
+                    let dist = Math.hypot(dx, dy);
+                    let maxDist = 30;
+                    
+                    if (dist > maxDist) { dx = (dx/dist)*maxDist; dy = (dy/dist)*maxDist; }
+                    s.style.transform = `translate(${dx}px, ${dy}px)`;
+                    Joy.nx = dx / maxDist; Joy.ny = dy / maxDist; // Vector (-1 to 1)
+                });
+
+                const endJoy = () => { Joy.active = false; b.style.display = 'none'; Joy.nx = 0; Joy.ny = 0; };
+                window.addEventListener('touchend', endJoy);
+                window.addEventListener('touchcancel', endJoy);
+            }
+        };
+
+        const Geom = {
+            // حساب حدود الطاولة بناءً على عدد اللاعبين الأحياء
+            buildTable: () => {
+                const W = window.innerWidth * 0.9;
+                const H = window.innerHeight * 0.9;
+                const offsetX = (window.innerWidth - W) / 2;
+                const offsetY = (window.innerHeight - H) / 2;
+                
+                let alive = State.players.filter(p => State.scores[p.id] > 0);
+                if (alive.length === 0) return;
+                
+                let N = alive.length;
+                let perimeter = 2 * W + 2 * H;
+                let slice = perimeter / N;
+                
+                State.boardSegments = [];
+                
+                const getCoord = (d) => {
+                    d = d % perimeter;
+                    if (d < d || d < W) return { x: offsetX + d, y: offsetY }; // Top
+                    if (d < W + H) return { x: offsetX + W, y: offsetY + (d - W) }; // Right
+                    if (d < 2*W + H) return { x: offsetX + W - (d - W - H), y: offsetY + H }; // Bottom
+                    return { x: offsetX, y: offsetY + H - (d - 2*W - H) }; // Left
+                };
+
+                for (let i = 0; i < N; i++) {
+                    let startD = i * slice;
+                    let endD = (i + 1) * slice;
+                    let midD = startD + slice / 2;
+                    let goalLen = slice * 0.35; // 35% من حصته هي المرمى
+                    
+                    State.boardSegments.push({
+                        player: alive[i],
+                        wall1: [getCoord(startD), getCoord(midD - goalLen/2)],
+                        goal:  [getCoord(midD - goalLen/2), getCoord(midD + goalLen/2)],
+                        wall2: [getCoord(midD + goalLen/2), getCoord(endD)]
                     });
                 }
-                return vertices;
             },
-            // تصادم دائرة مع خط
-            circleLineCollision: (circle, lineStart, lineEnd) => {
-                let dx = lineEnd.x - lineStart.x;
-                let dy = lineEnd.y - lineStart.y;
+            
+            lineCircleCollide: (c, r, p1, p2) => {
+                let dx = p2.x - p1.x, dy = p2.y - p1.y;
                 let len = Math.hypot(dx, dy);
-                let dot = (((circle.x - lineStart.x) * dx) + ((circle.y - lineStart.y) * dy)) / Math.pow(len, 2);
-                let closestX = lineStart.x + (dot * dx);
-                let closestY = lineStart.y + (dot * dy);
-                
-                // هل النقطة الأقرب تقع على القطعة المستقيمة؟
+                let dot = (((c.x - p1.x)*dx) + ((c.y - p1.y)*dy)) / (len*len);
+                let cx = p1.x + dot * dx, cy = p1.y + dot * dy;
                 if (dot < 0 || dot > 1) return null;
-                
-                let dist = MathUtils.distance(circle, {x: closestX, y: closestY});
-                if (dist < circle.r) {
-                    return { x: closestX, y: closestY, dist: dist, nx: -dy/len, ny: dx/len };
-                }
-                return null;
+                let dist = Math.hypot(c.x - cx, c.y - cy);
+                return dist < r ? { nx: -dy/len, ny: dx/len, pen: r - dist } : null;
             }
         };
 
-        // ==========================================
-        // 4. نظام الشبكة والاتصال (Networking)
-        // ==========================================
-        const GameNetwork = {
-            socket: null,
-            
-            joinRoom: () => {
-                const name = document.getElementById('playerName').value.trim();
-                const room = document.getElementById('roomCode').value.trim();
-                if (!name || !room) return alert("أدخل بياناتك!");
-
-                State.me.name = name;
-                State.room = room;
-                State.me.id = 'p_' + Math.random().toString(36).substr(2, 9);
-
-                document.getElementById('joinForm').style.display = 'none';
-                document.getElementById('lobbyView').style.display = 'block';
-                document.getElementById('lblRoomCode').innerText = room;
-                document.getElementById('lblHostStatus').innerText = "جاري الاتصال...";
-
-                // الاتصال اللحظي
-                GameNetwork.socket = io(CONFIG.SERVER_URL, { transports: ['websocket'], upgrade: false });
-                
-                GameNetwork.socket.on('connect', () => {
-                    // بث رسالة دخول للغرفة
-                    GameNetwork.emit('player_join', { id: State.me.id, name: State.me.name });
-                });
-
-                GameNetwork.socket.on('otherPlayerMoved', GameNetwork.handleMessages);
-                
-                // إضافة نفسي للقائمة مبدئياً
-                State.players.push({ id: State.me.id, name: State.me.name });
-                GameNetwork.updateLobbyUI();
-                
-                // بعد ثانية نتحقق إذا كنت أنا الأول لأصبح المضيف
-                setTimeout(() => {
-                    if (State.players.length === 1 || State.players[0].id === State.me.id) {
-                        State.me.isHost = true;
-                        document.getElementById('lblHostStatus').innerText = "أنت مدير الغرفة (Host) 👑";
-                        document.getElementById('btnStartGame').style.display = 'block';
-                    }
-                }, 1000);
-            },
-
-            emit: (type, payload) => {
-                if (GameNetwork.socket && GameNetwork.socket.connected) {
-                    GameNetwork.socket.emit('playerMoved', { type, room: State.room, senderId: State.me.id, ...payload });
-                }
-            },
-
-            handleMessages: (data) => {
-                if (data.room !== State.room || data.senderId === State.me.id) return;
-
-                switch (data.type) {
-                    case 'player_join':
-                        // إذا كنت أنا المضيف، سأقوم بإرسال حالة الغرفة الكاملة للجميع
-                        if (State.me.isHost && State.players.length < CONFIG.MAX_PLAYERS) {
-                            if (!State.players.find(p => p.id === data.senderId)) {
-                                State.players.push({ id: data.senderId, name: data.name });
-                                GameNetwork.emit('lobby_sync', { players: State.players });
-                                GameNetwork.updateLobbyUI();
-                            }
-                        }
-                        break;
-                    case 'lobby_sync':
-                        if (!State.me.isHost) {
-                            State.players = data.players;
-                            GameNetwork.updateLobbyUI();
-                        }
-                        break;
-                    case 'game_start':
-                        State.players = data.players;
-                        Engine.initGame();
-                        break;
-                    case 'paddle_sync':
-                        State.paddles[data.senderId] = { x: data.x, y: data.y };
-                        break;
-                    case 'puck_sync':
-                        // استقبال فيزياء القرص من المضيف فقط
-                        if (!State.me.isHost) {
-                            State.puck.x = data.x;
-                            State.puck.y = data.y;
-                            State.puck.dx = data.dx;
-                            State.puck.dy = data.dy;
-                        }
-                        break;
-                    case 'score_update':
-                        State.scores = data.scores;
-                        Renderer.updateScoreBoard();
-                        Renderer.showStatus(data.msg, data.color);
-                        break;
-                }
-            },
-
-            hostStartGame: () => {
-                if (State.players.length < 2) return alert("تحتاج لاعبين على الأقل للبدء!");
-                // تعيين الأدوار والألوان
-                State.players.forEach((p, idx) => {
-                    p.color = CONFIG.COLORS[idx];
-                    p.roleIndex = idx;
-                    State.scores[p.id] = 5; // كل لاعب يبدأ بـ 5 أرواح
-                });
-                GameNetwork.emit('game_start', { players: State.players });
-                Engine.initGame();
-            },
-
-            updateLobbyUI: () => {
-                const list = document.getElementById('playersList');
-                list.innerHTML = '';
-                State.players.forEach((p, i) => {
-                    let div = document.createElement('div');
-                    div.className = 'player-item';
-                    div.style.color = CONFIG.COLORS[i] || '#fff';
-                    div.innerHTML = `<span>${p.name}</span> <span>${i === 0 ? '👑' : '🎮'}</span>`;
-                    list.appendChild(div);
-                });
-            }
-        };
-
-        // ==========================================
-        // 5. محرك اللعبة والفيزياء (Game Engine)
-        // ==========================================
         const Engine = {
-            vertices: [],
-            lastTime: 0,
+            ctx: null, lastTime: 0,
             
-            initGame: () => {
-                document.getElementById('loginArea').style.display = 'none';
-                document.getElementById('gameArea').style.display = 'flex';
-                
-                // تحديد موقعي في اللعبة
-                const myPlayerData = State.players.find(p => p.id === State.me.id);
-                State.me.roleIndex = myPlayerData.roleIndex;
-                State.me.color = myPlayerData.color;
+            init: () => {
+                const cvs = document.getElementById('gameCanvas');
+                cvs.width = window.innerWidth; cvs.height = window.innerHeight;
+                Engine.ctx = cvs.getContext('2d');
+                window.addEventListener('resize', () => { cvs.width = window.innerWidth; cvs.height = window.innerHeight; Geom.buildTable(); });
+                Joy.init();
+            },
 
-                // تهيئة المضلع الخماسي حسب عدد اللاعبين
-                Engine.vertices = MathUtils.getPolygonVertices(CONFIG.MAX_PLAYERS, CONFIG.ARENA_RADIUS, CONFIG.CENTER);
-                
-                State.players.forEach(p => { 
-                    State.paddles[p.id] = { x: CONFIG.CENTER.x, y: CONFIG.CENTER.y }; 
-                    if (!State.scores[p.id]) State.scores[p.id] = 5;
-                });
-                
-                Renderer.updateScoreBoard();
-                Renderer.initCanvas();
+            start: () => {
+                document.getElementById('uiOverlay').style.display = 'none';
                 State.isPlaying = true;
-                
-                // ربط أزرار التحكم
-                const canvas = document.getElementById('gameCanvas');
-                canvas.addEventListener('mousemove', Engine.handleInput);
-                canvas.addEventListener('touchmove', (e) => { e.preventDefault(); Engine.handleInput(e.touches[0]); }, { passive: false });
-
-                requestAnimationFrame(Engine.gameLoop);
+                State.puck = { x: window.innerWidth/2, y: window.innerHeight/2, dx: 300, dy: 300 };
+                Geom.buildTable();
+                State.players.forEach(p => { State.paddles[p.id] = { x: window.innerWidth/2, y: window.innerHeight/2 }; });
+                Engine.lastTime = performance.now();
+                requestAnimationFrame(Engine.loop);
             },
 
-            handleInput: (e) => {
+            loop: (now) => {
                 if (!State.isPlaying) return;
-                const canvas = document.getElementById('gameCanvas');
-                const rect = canvas.getBoundingClientRect();
-                const scaleX = canvas.width / rect.width;
-                const scaleY = canvas.height / rect.height;
-                
-                let mx = (e.clientX - rect.left) * scaleX;
-                let my = (e.clientY - rect.top) * scaleY;
+                let dt = (now - Engine.lastTime) / 1000;
+                Engine.lastTime = now;
+                if(dt > 0.1) dt = 0.016; // منع التخطي عند تعليق المتصفح
 
-                // تقييد حركة اللاعب داخل منطقته الخاصة (المثلث الخاص به)
-                // للتبسيط في هذا الكود: تقييد الحركة بناءً على مسافة من مركز الضلع
-                let myIdx = State.me.roleIndex;
-                let p1 = Engine.vertices[myIdx];
-                let p2 = Engine.vertices[(myIdx + 1) % CONFIG.MAX_PLAYERS];
-                
-                let midX = (p1.x + p2.x) / 2;
-                let midY = (p1.y + p2.y) / 2;
-                
-                // سحب المضرب نحو المؤشر مع تقييد المسافة
-                let distToMid = MathUtils.distance({x: mx, y: my}, {x: midX, y: midY});
-                let maxDist = CONFIG.ARENA_RADIUS * 0.45; // أقصى عمق يمكن للاعب الدخول فيه
-                
-                if (distToMid > maxDist) {
-                    let angle = MathUtils.angle({x: midX, y: midY}, {x: mx, y: my});
-                    mx = midX + Math.cos(angle) * maxDist;
-                    my = midY + Math.sin(angle) * maxDist;
+                // تحديث حركتي بناءً على الجويستك
+                let myPad = State.paddles[State.me.id];
+                if (myPad && State.scores[State.me.id] > 0) {
+                    myPad.x += Joy.nx * 500 * dt;
+                    myPad.y += Joy.ny * 500 * dt;
+                    
+                    // تقييد المضرب داخل الشاشة
+                    myPad.x = Math.max(CONFIG.PADDLE_R, Math.min(window.innerWidth - CONFIG.PADDLE_R, myPad.x));
+                    myPad.y = Math.max(CONFIG.PADDLE_R, Math.min(window.innerHeight - CONFIG.PADDLE_R, myPad.y));
+                    
+                    GameNetwork.emit('sync_pad', { x: myPad.x, y: myPad.y });
                 }
 
-                State.paddles[State.me.id] = { x: mx, y: my };
-                // بث حركتي للآخرين
-                GameNetwork.emit('paddle_sync', { x: mx, y: my });
+                if (State.me.isHost) Engine.physics(dt);
+
+                Engine.draw();
+                requestAnimationFrame(Engine.loop);
             },
 
-            gameLoop: (timestamp) => {
-                if (!State.isPlaying) return;
-                
-                // حساب الفيزياء إذا كنت أنا المضيف (لمنع التضارب)
-                if (State.me.isHost) {
-                    Engine.updatePhysics();
-                    // بث موقع القرص للجميع بمعدل معين لتقليل الضغط
-                    GameNetwork.emit('puck_sync', { 
-                        x: State.puck.x, y: State.puck.y, 
-                        dx: State.puck.dx, dy: State.puck.dy 
-                    });
-                } else {
-                    // العميل يقوم بتحديث بسيط للقرص محلياً ليكون سلساً بناءً على آخر سرعة وصلت (Client Prediction)
-                    State.puck.x += State.puck.dx;
-                    State.puck.y += State.puck.dy;
-                }
-
-                Renderer.draw();
-                requestAnimationFrame(Engine.gameLoop);
-            },
-
-            updatePhysics: () => {
-                let puck = State.puck;
-                puck.x += puck.dx;
-                puck.y += puck.dy;
+            physics: (dt) => {
+                let p = State.puck;
+                p.x += p.dx * dt; p.y += p.dy * dt;
                 
                 // احتكاك بسيط
-                puck.dx *= 0.995;
-                puck.dy *= 0.995;
+                p.dx *= 0.99; p.dy *= 0.99;
 
-                // 1. تصادم القرص مع المضارب
-                State.players.forEach(p => {
-                    if (State.scores[p.id] <= 0) return; // اللاعب الخاسر لا يتصادم مضربه
-                    
-                    let paddle = State.paddles[p.id];
-                    let dist = MathUtils.distance(puck, paddle);
-                    let minDist = CONFIG.PUCK_RADIUS + CONFIG.PADDLE_RADIUS;
-                    
-                    if (dist < minDist) {
-                        let angle = MathUtils.angle(paddle, puck);
-                        
-                        // دفع القرص بقوة
-                        let hitSpeed = Math.max(Math.hypot(puck.dx, puck.dy) + 2, 8);
-                        hitSpeed = Math.min(hitSpeed, 25); // أقصى سرعة
-                        
-                        puck.dx = Math.cos(angle) * hitSpeed;
-                        puck.dy = Math.sin(angle) * hitSpeed;
-                        
-                        // إبعاد القرص عن المضرب لمنع التداخل
-                        puck.x = paddle.x + Math.cos(angle) * minDist;
-                        puck.y = paddle.y + Math.sin(angle) * minDist;
-                        
-                        Renderer.createParticles(puck.x, puck.y, p.color);
-                    }
-                });
-
-                // 2. تصادم القرص مع جدران الملعب وأهداف اللاعبين
-                for (let i = 0; i < CONFIG.MAX_PLAYERS; i++) {
-                    let p1 = Engine.vertices[i];
-                    let p2 = Engine.vertices[(i + 1) % CONFIG.MAX_PLAYERS];
-                    
-                    let collision = MathUtils.circleLineCollision({x: puck.x, y: puck.y, r: CONFIG.PUCK_RADIUS}, p1, p2);
-                    
-                    if (collision) {
-                        // ارتداد أساسي
-                        let dot = (puck.dx * collision.nx) + (puck.dy * collision.ny);
-                        puck.dx = puck.dx - 2 * dot * collision.nx;
-                        puck.dy = puck.dy - 2 * dot * collision.ny;
-                        
-                        // التحقق هل دخل الهدف؟
-                        let midX = (p1.x + p2.x) / 2;
-                        let midY = (p1.y + p2.y) / 2;
-                        let wallLen = MathUtils.distance(p1, p2);
-                        let hitDistFromMid = MathUtils.distance(collision, {x: midX, y: midY});
-                        
-                        // إذا ضرب في منطقة الهدف واللاعب لا يزال حياً وموجوداً
-                        let targetPlayer = State.players.find(p => p.roleIndex === i);
-                        
-                        if (hitDistFromMid < (wallLen * CONFIG.GOAL_SIZE_RATIO / 2)) {
-                            if (targetPlayer && State.scores[targetPlayer.id] > 0) {
-                                // تسجيل هدف ضده
-                                State.scores[targetPlayer.id]--;
-                                Engine.handleGoal(targetPlayer);
-                                break; // خروج من حلقة التصادم بعد الهدف
-                            } else {
-                                // الجدار مغلق (ارتداد فقط مع مؤثر)
-                                Renderer.createParticles(collision.x, collision.y, '#fff');
-                            }
-                        } else {
-                            // ضرب الجدار العادي
-                            Renderer.createParticles(collision.x, collision.y, '#444');
-                        }
+                // تصادم مع المضارب
+                for (let id in State.paddles) {
+                    if (State.scores[id] <= 0) continue;
+                    let pad = State.paddles[id];
+                    let dist = Math.hypot(p.x - pad.x, p.y - pad.y);
+                    if (dist < CONFIG.PUCK_R + CONFIG.PADDLE_R) {
+                        let angle = Math.atan2(p.y - pad.y, p.x - pad.x);
+                        let speed = Math.max(Math.hypot(p.dx, p.dy), 400);
+                        p.dx = Math.cos(angle) * speed; p.dy = Math.sin(angle) * speed;
+                        p.x = pad.x + Math.cos(angle) * (CONFIG.PUCK_R + CONFIG.PADDLE_R + 1);
+                        p.y = pad.y + Math.sin(angle) * (CONFIG.PUCK_R + CONFIG.PADDLE_R + 1);
                     }
                 }
-                
-                // تحديد حدود أمان للقرص كي لا يطير خارج الملعب نهائياً
-                if(MathUtils.distance(puck, CONFIG.CENTER) > CONFIG.ARENA_RADIUS + 100) {
-                    Engine.resetPuck();
+
+                // تصادم مع الجدران والأهداف
+                for (let seg of State.boardSegments) {
+                    // جدار 1
+                    let col1 = Geom.lineCircleCollide(p, CONFIG.PUCK_R, seg.wall1[0], seg.wall1[1]);
+                    if(col1) { p.dx -= 2*(p.dx*col1.nx + p.dy*col1.ny)*col1.nx; p.x += col1.nx*col1.pen; }
+                    
+                    // جدار 2
+                    let col2 = Geom.lineCircleCollide(p, CONFIG.PUCK_R, seg.wall2[0], seg.wall2[1]);
+                    if(col2) { p.dx -= 2*(p.dx*col2.nx + p.dy*col2.ny)*col2.nx; p.x += col2.nx*col2.pen; }
+
+                    // المرمى
+                    let goalCol = Geom.lineCircleCollide(p, CONFIG.PUCK_R, seg.goal[0], seg.goal[1]);
+                    if (goalCol) {
+                        State.scores[seg.player.id]--;
+                        GameNetwork.emit('sync_score', { scores: State.scores });
+                        Engine.updateUI();
+                        Geom.buildTable(); // إعادة التشكيل إذا مات أحدهم
+                        p.x = window.innerWidth/2; p.y = window.innerHeight/2;
+                        p.dx = (Math.random()-0.5)*500; p.dy = (Math.random()-0.5)*500;
+                        break;
+                    }
                 }
-            },
 
-            handleGoal: (loserPlayer) => {
-                let msg = State.scores[loserPlayer.id] === 0 ? `💀 ${loserPlayer.name} تم إقصاؤه!` : `🔥 هدف على ${loserPlayer.name}`;
-                GameNetwork.emit('score_update', { scores: State.scores, msg: msg, color: loserPlayer.color });
-                Renderer.showStatus(msg, loserPlayer.color);
-                Renderer.updateScoreBoard();
-                Engine.resetPuck();
-            },
-
-            resetPuck: () => {
-                State.puck.x = CONFIG.CENTER.x;
-                State.puck.y = CONFIG.CENTER.y;
-                State.puck.dx = (Math.random() - 0.5) * 5;
-                State.puck.dy = (Math.random() - 0.5) * 5;
-            }
-        };
-
-        // ==========================================
-        // 6. محرك الرسم والتأثيرات (Renderer)
-        // ==========================================
-        const Renderer = {
-            ctx: null,
-            canvas: null,
-            
-            initCanvas: () => {
-                Renderer.canvas = document.getElementById('gameCanvas');
-                Renderer.ctx = Renderer.canvas.getContext('2d', { alpha: false });
-            },
-
-            createParticles: (x, y, color) => {
-                for (let i = 0; i < 15; i++) {
-                    State.particles.push({
-                        x: x, y: y,
-                        dx: (Math.random() - 0.5) * 10, dy: (Math.random() - 0.5) * 10,
-                        life: 1.0, color: color
-                    });
-                }
+                GameNetwork.emit('sync_puck', { x: p.x, y: p.y, dx: p.dx, dy: p.dy });
             },
 
             draw: () => {
-                let ctx = Renderer.ctx;
-                
-                // تنظيف الشاشة مع تأثير ذيل ضبابي (Motion Blur)
-                ctx.fillStyle = 'rgba(13, 13, 18, 0.4)';
-                ctx.fillRect(0, 0, CONFIG.CANVAS_SIZE, CONFIG.CANVAS_SIZE);
+                let ctx = Engine.ctx;
+                ctx.fillStyle = 'rgba(5, 5, 8, 0.4)';
+                ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
-                // رسم الملعب (الخماسي)
-                ctx.lineWidth = 4;
-                for (let i = 0; i < CONFIG.MAX_PLAYERS; i++) {
-                    let p1 = Engine.vertices[i];
-                    let p2 = Engine.vertices[(i + 1) % CONFIG.MAX_PLAYERS];
-                    let midX = (p1.x + p2.x) / 2;
-                    let midY = (p1.y + p2.y) / 2;
+                // رسم الطاولة (المستطيل المقطع)
+                ctx.lineWidth = 6;
+                State.boardSegments.forEach(seg => {
+                    ctx.shadowBlur = 10; ctx.shadowColor = seg.player.color;
                     
-                    let playerHere = State.players.find(p => p.roleIndex === i);
-                    let color = playerHere ? playerHere.color : '#333';
-                    let isAlive = playerHere && State.scores[playerHere.id] > 0;
-
-                    // رسم الجدار
-                    ctx.beginPath();
-                    ctx.moveTo(p1.x, p1.y);
-                    ctx.lineTo(p2.x, p2.y);
-                    ctx.strokeStyle = isAlive ? '#333' : color; // جدار صلب إذا مات
-                    ctx.shadowBlur = isAlive ? 0 : 20;
-                    ctx.shadowColor = color;
-                    ctx.stroke();
-
-                    // رسم المرمى
-                    if (isAlive) {
-                        ctx.beginPath();
-                        let dirX = p2.x - p1.x; let dirY = p2.y - p1.y;
-                        let gStart = { x: midX - dirX * (CONFIG.GOAL_SIZE_RATIO/2), y: midY - dirY * (CONFIG.GOAL_SIZE_RATIO/2) };
-                        let gEnd = { x: midX + dirX * (CONFIG.GOAL_SIZE_RATIO/2), y: midY + dirY * (CONFIG.GOAL_SIZE_RATIO/2) };
-                        
-                        ctx.moveTo(gStart.x, gStart.y);
-                        ctx.lineTo(gEnd.x, gEnd.y);
-                        ctx.strokeStyle = color;
-                        ctx.lineWidth = 10;
-                        ctx.shadowBlur = 30;
-                        ctx.stroke();
-                        ctx.lineWidth = 4;
-                    }
-                }
+                    // الجدران الصلبة
+                    ctx.strokeStyle = seg.player.color;
+                    ctx.beginPath(); ctx.moveTo(seg.wall1[0].x, seg.wall1[0].y); ctx.lineTo(seg.wall1[1].x, seg.wall1[1].y); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(seg.wall2[0].x, seg.wall2[0].y); ctx.lineTo(seg.wall2[1].x, seg.wall2[1].y); ctx.stroke();
+                    
+                    // المرمى
+                    ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 10;
+                    ctx.beginPath(); ctx.moveTo(seg.goal[0].x, seg.goal[0].y); ctx.lineTo(seg.goal[1].x, seg.goal[1].y); ctx.stroke();
+                    ctx.lineWidth = 6;
+                });
                 ctx.shadowBlur = 0;
 
                 // رسم المضارب
-                State.players.forEach(p => {
-                    if (State.scores[p.id] <= 0) return;
-                    let pos = State.paddles[p.id];
-                    if (!pos) return;
-
-                    ctx.beginPath();
-                    ctx.arc(pos.x, pos.y, CONFIG.PADDLE_RADIUS, 0, Math.PI * 2);
-                    ctx.fillStyle = '#111';
-                    ctx.fill();
-                    ctx.lineWidth = 6;
-                    ctx.strokeStyle = p.color;
-                    ctx.shadowBlur = 20;
-                    ctx.shadowColor = p.color;
-                    ctx.stroke();
-                    
-                    // تمييز مضربي
-                    if (p.id === State.me.id) {
-                        ctx.beginPath(); ctx.arc(pos.x, pos.y, 10, 0, Math.PI * 2);
-                        ctx.fillStyle = p.color; ctx.fill();
-                    }
-                });
-                ctx.shadowBlur = 0;
-
-                // تأثير ذيل القرص
-                State.trails.push({x: State.puck.x, y: State.puck.y, life: 1.0});
-                ctx.beginPath();
-                for (let i = 0; i < State.trails.length; i++) {
-                    let t = State.trails[i];
-                    ctx.lineTo(t.x, t.y);
-                    t.life -= 0.1;
+                for (let id in State.paddles) {
+                    if (State.scores[id] <= 0) continue;
+                    let p = State.players.find(x => x.id === id);
+                    let pad = State.paddles[id];
+                    ctx.beginPath(); ctx.arc(pad.x, pad.y, CONFIG.PADDLE_R, 0, Math.PI*2);
+                    ctx.fillStyle = p.color; ctx.shadowBlur = 15; ctx.shadowColor = p.color; ctx.fill();
+                    ctx.shadowBlur = 0;
                 }
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                ctx.lineWidth = CONFIG.PUCK_RADIUS;
-                ctx.stroke();
-                State.trails = State.trails.filter(t => t.life > 0);
 
                 // رسم القرص
-                ctx.beginPath();
-                ctx.arc(State.puck.x, State.puck.y, CONFIG.PUCK_RADIUS, 0, Math.PI * 2);
-                ctx.fillStyle = '#fff';
-                ctx.shadowBlur = 40;
-                ctx.shadowColor = '#fff';
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(State.puck.x, State.puck.y, CONFIG.PUCK_R, 0, Math.PI*2);
+                ctx.fillStyle = '#fff'; ctx.shadowBlur = 20; ctx.shadowColor = '#fff'; ctx.fill();
                 ctx.shadowBlur = 0;
-
-                // رسم الجزيئات (Particles)
-                for (let i = State.particles.length - 1; i >= 0; i--) {
-                    let p = State.particles[i];
-                    p.x += p.dx; p.y += p.dy; p.life -= 0.05;
-                    ctx.globalAlpha = Math.max(p.life, 0);
-                    ctx.fillStyle = p.color;
-                    ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
-                    if (p.life <= 0) State.particles.splice(i, 1);
-                }
-                ctx.globalAlpha = 1.0;
             },
 
-            updateScoreBoard: () => {
-                const board = document.getElementById('scoreBoard');
-                board.innerHTML = '';
+            updateUI: () => {
+                const b = document.getElementById('scoreBoard'); b.innerHTML = '';
                 State.players.forEach(p => {
-                    let div = document.createElement('div');
-                    div.className = 'score-item';
+                    let d = document.createElement('div'); d.className = 'score-item';
                     let isDead = State.scores[p.id] <= 0;
-                    div.style.color = isDead ? '#555' : p.color;
-                    div.style.textShadow = isDead ? 'none' : `0 0 10px ${p.color}`;
-                    div.innerHTML = `${p.name}: ${isDead ? '💀' : '❤️'.repeat(State.scores[p.id])}`;
-                    board.appendChild(div);
+                    d.style.color = isDead ? '#555' : p.color;
+                    d.innerText = `${p.name}: ${isDead ? '💀' : State.scores[p.id]}`;
+                    b.appendChild(d);
                 });
-            },
+            }
+        };
 
-            showStatus: (msg, color) => {
-                let textEl = document.getElementById('statusText');
-                textEl.innerText = msg;
-                textEl.style.color = color || '#fff';
-                textEl.style.textShadow = `0 0 30px ${color || '#fff'}`;
-                textEl.style.opacity = 1;
-                setTimeout(() => { textEl.style.opacity = 0; }, 2500);
+        const GameNetwork = {
+            socket: null,
+            joinRoom: () => {
+                let name = document.getElementById('playerName').value;
+                let room = document.getElementById('roomCode').value;
+                if(!name || !room) return;
+                
+                State.me.id = 'P_'+Math.floor(Math.random()*1000);
+                State.room = room;
+                State.players.push({ id: State.me.id, name: name, color: CONFIG.COLORS[0] });
+                
+                document.getElementById('loginPanel').style.display = 'none';
+                document.getElementById('lobbyPanel').style.display = 'block';
+                document.getElementById('lblRoom').innerText = room;
+
+                GameNetwork.socket = io(CONFIG.SERVER, { transports: ['websocket'] });
+                GameNetwork.socket.on('connect', () => {
+                    GameNetwork.emit('join', { id: State.me.id, name: name });
+                    setTimeout(() => {
+                        if(State.players.length === 1 || State.players[0].id === State.me.id) {
+                            State.me.isHost = true;
+                            document.getElementById('lblStatus').innerText = 'أنت المضيف 👑';
+                            document.getElementById('btnStartGame').style.display = 'block';
+                        }
+                    }, 1000);
+                });
+
+                GameNetwork.socket.on('otherPlayerMoved', (d) => {
+                    if(d.room !== State.room || d.sender === State.me.id) return;
+                    
+                    if(d.type === 'join') {
+                        if (State.me.isHost && State.players.length < CONFIG.MAX_PLAYERS) {
+                            if(!State.players.find(p=>p.id===d.id)) {
+                                State.players.push({ id: d.id, name: d.name, color: CONFIG.COLORS[State.players.length] });
+                                GameNetwork.emit('sync_lobby', { players: State.players });
+                                GameNetwork.updateLobby();
+                            }
+                        }
+                    } else if (d.type === 'sync_lobby') {
+                        if(!State.me.isHost) { State.players = d.players; GameNetwork.updateLobby(); }
+                    } else if (d.type === 'start') {
+                        State.players = d.players; State.scores = d.scores; Engine.start(); Engine.updateUI();
+                    } else if (d.type === 'sync_pad') {
+                        if(State.paddles[d.sender]) { State.paddles[d.sender].x = d.x; State.paddles[d.sender].y = d.y; }
+                    } else if (d.type === 'sync_puck' && !State.me.isHost) {
+                        State.puck.x = d.x; State.puck.y = d.y; State.puck.dx = d.dx; State.puck.dy = d.dy;
+                    } else if (d.type === 'sync_score') {
+                        State.scores = d.scores; Engine.updateUI(); Geom.buildTable();
+                    }
+                });
+                Engine.init();
+            },
+            emit: (type, data) => GameNetwork.socket.emit('playerMoved', { type, room: State.room, sender: State.me.id, ...data }),
+            updateLobby: () => {
+                document.getElementById('playersList').innerHTML = State.players.map(p => `<div style="color:${p.color}">${p.name}</div>`).join('');
+            },
+            startGame: () => {
+                if(State.players.length < 2) return alert('الحد الأدنى 2 لاعبين');
+                State.players.forEach(p => State.scores[p.id] = 5);
+                GameNetwork.emit('start', { players: State.players, scores: State.scores });
+                Engine.start(); Engine.updateUI();
             }
         };
     </script>
