@@ -3,362 +3,328 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>نيون هوكي - مستطيل ديناميكي 🏑</title>
+    <title>هوكي نيون 5X 🏑</title>
     <style>
-        :root { --bg-color: #050508; --panel-bg: #111118; --text-color: #e0e0e0; }
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-color); color: var(--text-color); overflow: hidden; touch-action: none; width: 100vw; height: 100vh; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #121212; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; touch-action: none; }
         
-        /* واجهات المستخدم */
-        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; pointer-events: none; }
-        .panel { background: rgba(17, 17, 24, 0.9); padding: 30px; border-radius: 15px; border: 1px solid #333; box-shadow: 0 0 30px rgba(0,0,0,0.8); text-align: center; width: 90%; max-width: 400px; pointer-events: auto; backdrop-filter: blur(5px); }
-        h1 { color: #00ffcc; text-shadow: 0 0 10px #00ffcc; margin-bottom: 20px; font-size: 2em; }
-        
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #444; background: #000; color: #fff; border-radius: 8px; text-align: center; outline: none; font-size: 1.1em; }
+        .container { background: #1e1e24; padding: 20px; border-radius: 15px; box-shadow: 0 0 20px rgba(0,255,204,0.1); text-align: center; width: 90%; max-width: 450px; z-index: 10; position: absolute; }
+        h1 { color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.5); margin-bottom: 5px; }
+        .input-group { display: flex; gap: 10px; margin: 15px 0; flex-direction: column; }
+        input { flex: 1; padding: 12px; border: 2px solid #555; background: #121212; color: #fff; border-radius: 8px; text-align: center; outline: none; font-size: 16px;}
         input:focus { border-color: #00ffcc; }
-        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; font-size: 1.2em; cursor: pointer; transition: 0.2s; background: #00ffcc; color: #000; margin-top: 10px; }
-        button:active { transform: scale(0.95); }
+        button { padding: 12px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; color:#000; width: 100%; margin-top: 10px; }
+        .btn-p1 { background: #00ffcc; box-shadow: 0 0 10px #00ffcc; }
         .btn-start { background: #ffcc00; display: none; }
-
-        .score-board { position: absolute; top: 10px; left: 0; width: 100%; display: flex; justify-content: center; gap: 20px; z-index: 5; pointer-events: none; flex-wrap: wrap; }
-        .score-item { font-size: 1.2em; font-weight: bold; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 20px; }
-
-        canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        button:hover { filter: brightness(1.2); }
+        
+        #gameArea { display: none; width: 100%; height: 100%; position: relative; justify-content: center; align-items: center; }
+        
+        /* الرسوميات المطلوبة بالضبط */
+        canvas { background: #1a1a24; border: 3px solid #333; border-radius: 10px; box-shadow: inset 0 0 20px #000; max-width: 95vw; max-height: 95vh; object-fit: contain; }
+        
+        .score-board { position: absolute; top: 10px; left: 0; width: 100%; display: flex; justify-content: center; gap: 15px; font-size: 1.2em; font-weight: bold; z-index: 5; pointer-events: none; flex-wrap: wrap; }
         
         /* عصا التحكم (Joystick) */
-        #joyBase { position: absolute; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; z-index: 20; display: none; pointer-events: none; transform: translate(-50%, -50%); }
-        #joyStick { position: absolute; width: 40px; height: 40px; background: rgba(0, 255, 204, 0.6); border-radius: 50%; top: 30px; left: 30px; box-shadow: 0 0 15px #00ffcc; pointer-events: none; }
+        #joyBase { position: absolute; width: 120px; height: 120px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.15); border-radius: 50%; z-index: 20; display: none; pointer-events: none; transform: translate(-50%, -50%); }
+        #joyStick { position: absolute; width: 50px; height: 50px; background: rgba(0, 255, 204, 0.5); border-radius: 50%; top: 35px; left: 35px; box-shadow: 0 0 15px rgba(0,255,204,0.5); pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <div class="score-board" id="scoreBoard"></div>
-
-    <div class="overlay" id="uiOverlay">
-        <div class="panel" id="loginPanel">
-            <h1>طاولة بلياردو نيون 🏑</h1>
-            <input type="text" id="playerName" placeholder="الاسم" required maxlength="10">
-            <input type="text" id="roomCode" placeholder="رقم الغرفة" required>
-            <button onclick="GameNetwork.joinRoom()">دخول الغرفة</button>
+    <div class="container" id="loginArea">
+        <h1>هوكي نيون 5X 🏑</h1>
+        <p style="color: #aaa; font-size: 14px;">أدخل اسمك ورقم الغرفة</p>
+        <div class="input-group">
+            <input type="text" id="playerName" placeholder="اسمك..." required>
+            <input type="number" id="roomCode" placeholder="رقم الغرفة (مثال: 5)" required>
         </div>
-        
-        <div class="panel" id="lobbyPanel" style="display: none;">
-            <h2 style="color: #ff0055;">غرفة: <span id="lblRoom"></span></h2>
-            <p id="lblStatus" style="color: #aaa; margin: 10px 0;"></p>
-            <div id="playersList" style="margin: 15px 0; text-align: right; background: #000; padding: 10px; border-radius: 8px;"></div>
-            <button id="btnStartGame" class="btn-start" onclick="GameNetwork.startGame()">بدء اللعبة 🚀</button>
-        </div>
+        <button onclick="App.joinRoom()" class="btn-p1">دخول الغرفة</button>
     </div>
 
-    <!-- عصا التحكم -->
-    <div id="joyBase"><div id="joyStick"></div></div>
+    <div class="container" id="lobbyArea" style="display: none;">
+        <h2 style="color: #ff0055;">غرفة: <span id="lblRoom"></span></h2>
+        <p id="lblStatus" style="color: #00ffcc; font-size: 14px; margin: 10px 0;"></p>
+        <div id="playersList" style="text-align: right; background: #121212; padding: 10px; border-radius: 8px; margin-bottom: 15px;"></div>
+        <button id="btnStartGame" class="btn-start" onclick="App.startGame()">🔥 بدء التحدي</button>
+    </div>
 
-    <canvas id="gameCanvas"></canvas>
+    <div id="gameArea">
+        <div class="score-board" id="scoreBoard"></div>
+        <canvas id="hockeyBoard" width="800" height="1200"></canvas>
+        <div id="joyBase"><div id="joyStick"></div></div>
+    </div>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
         const CONFIG = {
-            SERVER: 'https://render-kr1o.onrender.com/', // السيرفر الوسيط
+            SERVER: 'https://render-kr1o.onrender.com/',
+            W: 800, H: 1200, PERIMETER: 4000, // 2*800 + 2*1200
             COLORS: ['#00ffcc', '#ff0055', '#ffcc00', '#33ff00', '#cc00ff'],
-            PUCK_R: 15, PADDLE_R: 30, SPEED: 800, MAX_PLAYERS: 5
+            PUCK_R: 20, PADDLE_R: 35, GOAL_SIZE: 220
         };
 
         const State = {
-            me: { id: null, isHost: false },
-            players: [], room: '', isPlaying: false,
-            puck: { x: 0, y: 0, dx: 0, dy: 0 },
-            paddles: {}, scores: {},
-            boardSegments: [] // الحواف والأهداف الديناميكية
+            socket: null, room: '', isHost: false, isPlaying: false,
+            me: { id: null, name: '' }, players: [],
+            scores: {}, paddles: {}, puck: { x: 400, y: 600, dx: 0, dy: 0 },
+            segments: []
         };
 
+        // نظام عصا التحكم (Joystick)
         const Joy = {
-            active: false, baseX: 0, baseY: 0, nx: 0, ny: 0,
+            active: false, startX: 0, startY: 0, nx: 0, ny: 0,
             init: () => {
-                const b = document.getElementById('joyBase');
-                const s = document.getElementById('joyStick');
-                
+                const b = document.getElementById('joyBase'), s = document.getElementById('joyStick');
                 window.addEventListener('touchstart', e => {
-                    if (!State.isPlaying) return;
+                    if (!State.isPlaying || State.scores[State.me.id] <= 0) return;
                     Joy.active = true;
-                    Joy.baseX = e.touches[0].clientX; Joy.baseY = e.touches[0].clientY;
+                    Joy.startX = e.touches[0].clientX; Joy.startY = e.touches[0].clientY;
                     b.style.display = 'block';
-                    b.style.left = Joy.baseX + 'px'; b.style.top = Joy.baseY + 'px';
+                    b.style.left = Joy.startX + 'px'; b.style.top = Joy.startY + 'px';
                     s.style.transform = `translate(0px, 0px)`;
                 });
-                
                 window.addEventListener('touchmove', e => {
                     if (!Joy.active) return;
-                    let dx = e.touches[0].clientX - Joy.baseX;
-                    let dy = e.touches[0].clientY - Joy.baseY;
-                    let dist = Math.hypot(dx, dy);
-                    let maxDist = 30;
-                    
-                    if (dist > maxDist) { dx = (dx/dist)*maxDist; dy = (dy/dist)*maxDist; }
+                    let dx = e.touches[0].clientX - Joy.startX, dy = e.touches[0].clientY - Joy.startY;
+                    let dist = Math.hypot(dx, dy), max = 40;
+                    if (dist > max) { dx = (dx/dist)*max; dy = (dy/dist)*max; }
                     s.style.transform = `translate(${dx}px, ${dy}px)`;
-                    Joy.nx = dx / maxDist; Joy.ny = dy / maxDist; // Vector (-1 to 1)
+                    Joy.nx = dx / max; Joy.ny = dy / max;
                 });
-
-                const endJoy = () => { Joy.active = false; b.style.display = 'none'; Joy.nx = 0; Joy.ny = 0; };
-                window.addEventListener('touchend', endJoy);
-                window.addEventListener('touchcancel', endJoy);
+                const end = () => { Joy.active = false; b.style.display = 'none'; Joy.nx = 0; Joy.ny = 0; };
+                window.addEventListener('touchend', end);
+                window.addEventListener('touchcancel', end);
             }
         };
 
+        // نظام الهندسة الديناميكية لتقسيم الطاولة
         const Geom = {
-            // حساب حدود الطاولة بناءً على عدد اللاعبين الأحياء
+            getPos: (d) => {
+                d = (d + CONFIG.PERIMETER) % CONFIG.PERIMETER;
+                let W = CONFIG.W, H = CONFIG.H;
+                if (d < W/2) return { x: W/2 + d, y: 0 }; 
+                if (d < W/2 + H) return { x: W, y: d - W/2 }; 
+                if (d < W/2 + H + W) return { x: W - (d - W/2 - H), y: H }; 
+                if (d < W/2 + 2*H + W) return { x: 0, y: H - (d - W/2 - H - W) }; 
+                return { x: d - (W/2 + 2*H + W), y: 0 }; 
+            },
             buildTable: () => {
-                const W = window.innerWidth * 0.9;
-                const H = window.innerHeight * 0.9;
-                const offsetX = (window.innerWidth - W) / 2;
-                const offsetY = (window.innerHeight - H) / 2;
-                
                 let alive = State.players.filter(p => State.scores[p.id] > 0);
                 if (alive.length === 0) return;
                 
-                let N = alive.length;
-                let perimeter = 2 * W + 2 * H;
-                let slice = perimeter / N;
+                let slice = CONFIG.PERIMETER / alive.length;
+                State.segments = [];
                 
-                State.boardSegments = [];
-                
-                const getCoord = (d) => {
-                    d = d % perimeter;
-                    if (d < d || d < W) return { x: offsetX + d, y: offsetY }; // Top
-                    if (d < W + H) return { x: offsetX + W, y: offsetY + (d - W) }; // Right
-                    if (d < 2*W + H) return { x: offsetX + W - (d - W - H), y: offsetY + H }; // Bottom
-                    return { x: offsetX, y: offsetY + H - (d - 2*W - H) }; // Left
-                };
-
-                for (let i = 0; i < N; i++) {
-                    let startD = i * slice;
-                    let endD = (i + 1) * slice;
-                    let midD = startD + slice / 2;
-                    let goalLen = slice * 0.35; // 35% من حصته هي المرمى
-                    
-                    State.boardSegments.push({
+                for (let i = 0; i < alive.length; i++) {
+                    let center = i * slice; // مركز هدف كل لاعب
+                    State.segments.push({
                         player: alive[i],
-                        wall1: [getCoord(startD), getCoord(midD - goalLen/2)],
-                        goal:  [getCoord(midD - goalLen/2), getCoord(midD + goalLen/2)],
-                        wall2: [getCoord(midD + goalLen/2), getCoord(endD)]
+                        wall1: [Geom.getPos(center - slice/2), Geom.getPos(center - CONFIG.GOAL_SIZE/2)],
+                        goal:  [Geom.getPos(center - CONFIG.GOAL_SIZE/2), Geom.getPos(center + CONFIG.GOAL_SIZE/2)],
+                        wall2: [Geom.getPos(center + CONFIG.GOAL_SIZE/2), Geom.getPos(center + slice/2)]
                     });
                 }
-            },
-            
-            lineCircleCollide: (c, r, p1, p2) => {
+            }
+        };
+
+        const Physics = {
+            collideLineCircle: (c, r, p1, p2) => {
                 let dx = p2.x - p1.x, dy = p2.y - p1.y;
-                let len = Math.hypot(dx, dy);
-                let dot = (((c.x - p1.x)*dx) + ((c.y - p1.y)*dy)) / (len*len);
-                let cx = p1.x + dot * dx, cy = p1.y + dot * dy;
-                if (dot < 0 || dot > 1) return null;
-                let dist = Math.hypot(c.x - cx, c.y - cy);
-                return dist < r ? { nx: -dy/len, ny: dx/len, pen: r - dist } : null;
+                let len2 = dx*dx + dy*dy;
+                let t = Math.max(0, Math.min(1, ((c.x - p1.x)*dx + (c.y - p1.y)*dy) / len2));
+                let px = p1.x + t*dx, py = p1.y + t*dy;
+                let dist = Math.hypot(c.x - px, c.y - py);
+                return dist < r ? { nx: (c.x - px)/dist, ny: (c.y - py)/dist, pen: r - dist } : null;
             }
         };
 
         const Engine = {
-            ctx: null, lastTime: 0,
+            ctx: document.getElementById('hockeyBoard').getContext('2d'),
+            lastTime: 0,
             
-            init: () => {
-                const cvs = document.getElementById('gameCanvas');
-                cvs.width = window.innerWidth; cvs.height = window.innerHeight;
-                Engine.ctx = cvs.getContext('2d');
-                window.addEventListener('resize', () => { cvs.width = window.innerWidth; cvs.height = window.innerHeight; Geom.buildTable(); });
-                Joy.init();
-            },
-
             start: () => {
-                document.getElementById('uiOverlay').style.display = 'none';
-                State.isPlaying = true;
-                State.puck = { x: window.innerWidth/2, y: window.innerHeight/2, dx: 300, dy: 300 };
+                document.getElementById('lobbyArea').style.display = 'none';
+                document.getElementById('gameArea').style.display = 'flex';
                 Geom.buildTable();
-                State.players.forEach(p => { State.paddles[p.id] = { x: window.innerWidth/2, y: window.innerHeight/2 }; });
+                State.isPlaying = true;
                 Engine.lastTime = performance.now();
                 requestAnimationFrame(Engine.loop);
             },
-
+            
             loop: (now) => {
                 if (!State.isPlaying) return;
-                let dt = (now - Engine.lastTime) / 1000;
+                let dt = Math.min((now - Engine.lastTime) / 1000, 0.03); // كاب للـ FPS للحماية
                 Engine.lastTime = now;
-                if(dt > 0.1) dt = 0.016; // منع التخطي عند تعليق المتصفح
 
-                // تحديث حركتي بناءً على الجويستك
+                // 1. حركة مضربي المحلي (سلاسة تامة 60/120fps)
                 let myPad = State.paddles[State.me.id];
                 if (myPad && State.scores[State.me.id] > 0) {
-                    myPad.x += Joy.nx * 500 * dt;
-                    myPad.y += Joy.ny * 500 * dt;
-                    
-                    // تقييد المضرب داخل الشاشة
-                    myPad.x = Math.max(CONFIG.PADDLE_R, Math.min(window.innerWidth - CONFIG.PADDLE_R, myPad.x));
-                    myPad.y = Math.max(CONFIG.PADDLE_R, Math.min(window.innerHeight - CONFIG.PADDLE_R, myPad.y));
-                    
-                    GameNetwork.emit('sync_pad', { x: myPad.x, y: myPad.y });
+                    myPad.x += Joy.nx * 700 * dt;
+                    myPad.y += Joy.ny * 700 * dt;
+                    myPad.x = Math.max(CONFIG.PADDLE_R, Math.min(CONFIG.W - CONFIG.PADDLE_R, myPad.x));
+                    myPad.y = Math.max(CONFIG.PADDLE_R, Math.min(CONFIG.H - CONFIG.PADDLE_R, myPad.y));
+                    App.emit('pad', { x: myPad.x, y: myPad.y });
                 }
 
-                if (State.me.isHost) Engine.physics(dt);
+                // 2. حركة القرص (Client Prediction)
+                State.puck.x += State.puck.dx * dt;
+                State.puck.y += State.puck.dy * dt;
+                State.puck.dx *= 0.99; State.puck.dy *= 0.99; // احتكاك
+
+                // 3. حساب التصادمات (المضيف فقط يقرر الأهداف)
+                if (State.isHost) Engine.calculatePhysics();
 
                 Engine.draw();
                 requestAnimationFrame(Engine.loop);
             },
 
-            physics: (dt) => {
+            calculatePhysics: () => {
                 let p = State.puck;
-                p.x += p.dx * dt; p.y += p.dy * dt;
                 
-                // احتكاك بسيط
-                p.dx *= 0.99; p.dy *= 0.99;
-
-                // تصادم مع المضارب
+                // تصادم المضارب
                 for (let id in State.paddles) {
                     if (State.scores[id] <= 0) continue;
                     let pad = State.paddles[id];
                     let dist = Math.hypot(p.x - pad.x, p.y - pad.y);
                     if (dist < CONFIG.PUCK_R + CONFIG.PADDLE_R) {
                         let angle = Math.atan2(p.y - pad.y, p.x - pad.x);
-                        let speed = Math.max(Math.hypot(p.dx, p.dy), 400);
+                        let speed = Math.max(Math.hypot(p.dx, p.dy) + 150, 600);
                         p.dx = Math.cos(angle) * speed; p.dy = Math.sin(angle) * speed;
                         p.x = pad.x + Math.cos(angle) * (CONFIG.PUCK_R + CONFIG.PADDLE_R + 1);
                         p.y = pad.y + Math.sin(angle) * (CONFIG.PUCK_R + CONFIG.PADDLE_R + 1);
                     }
                 }
 
-                // تصادم مع الجدران والأهداف
-                for (let seg of State.boardSegments) {
-                    // جدار 1
-                    let col1 = Geom.lineCircleCollide(p, CONFIG.PUCK_R, seg.wall1[0], seg.wall1[1]);
-                    if(col1) { p.dx -= 2*(p.dx*col1.nx + p.dy*col1.ny)*col1.nx; p.x += col1.nx*col1.pen; }
+                // تصادم الجدران والأهداف
+                for (let seg of State.segments) {
+                    let w1 = Physics.collideLineCircle(p, CONFIG.PUCK_R, seg.wall1[0], seg.wall1[1]);
+                    if(w1) { p.dx += 2*Math.abs(p.dx*w1.nx)*w1.nx; p.dy += 2*Math.abs(p.dy*w1.ny)*w1.ny; p.x += w1.nx*w1.pen; p.y += w1.ny*w1.pen; }
                     
-                    // جدار 2
-                    let col2 = Geom.lineCircleCollide(p, CONFIG.PUCK_R, seg.wall2[0], seg.wall2[1]);
-                    if(col2) { p.dx -= 2*(p.dx*col2.nx + p.dy*col2.ny)*col2.nx; p.x += col2.nx*col2.pen; }
+                    let w2 = Physics.collideLineCircle(p, CONFIG.PUCK_R, seg.wall2[0], seg.wall2[1]);
+                    if(w2) { p.dx += 2*Math.abs(p.dx*w2.nx)*w2.nx; p.dy += 2*Math.abs(p.dy*w2.ny)*w2.ny; p.x += w2.nx*w2.pen; p.y += w2.ny*w2.pen; }
 
-                    // المرمى
-                    let goalCol = Geom.lineCircleCollide(p, CONFIG.PUCK_R, seg.goal[0], seg.goal[1]);
-                    if (goalCol) {
+                    let g = Physics.collideLineCircle(p, CONFIG.PUCK_R, seg.goal[0], seg.goal[1]);
+                    if (g) {
                         State.scores[seg.player.id]--;
-                        GameNetwork.emit('sync_score', { scores: State.scores });
-                        Engine.updateUI();
-                        Geom.buildTable(); // إعادة التشكيل إذا مات أحدهم
-                        p.x = window.innerWidth/2; p.y = window.innerHeight/2;
-                        p.dx = (Math.random()-0.5)*500; p.dy = (Math.random()-0.5)*500;
+                        App.emit('score', { scores: State.scores });
+                        App.updateUI(); Geom.buildTable();
+                        p.x = 400; p.y = 600; p.dx = (Math.random()-0.5)*400; p.dy = (Math.random()-0.5)*400;
                         break;
                     }
                 }
-
-                GameNetwork.emit('sync_puck', { x: p.x, y: p.y, dx: p.dx, dy: p.dy });
+                App.emit('puck', { x: p.x, y: p.y, dx: p.dx, dy: p.dy });
             },
 
             draw: () => {
                 let ctx = Engine.ctx;
-                ctx.fillStyle = 'rgba(5, 5, 8, 0.4)';
-                ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+                ctx.clearRect(0, 0, CONFIG.W, CONFIG.H);
 
-                // رسم الطاولة (المستطيل المقطع)
-                ctx.lineWidth = 6;
-                State.boardSegments.forEach(seg => {
-                    ctx.shadowBlur = 10; ctx.shadowColor = seg.player.color;
-                    
+                // ديكور الطاولة الكلاسيكي (منتصف الملعب)
+                ctx.beginPath(); ctx.moveTo(0, CONFIG.H/2); ctx.lineTo(CONFIG.W, CONFIG.H/2); ctx.strokeStyle = '#333'; ctx.lineWidth = 4; ctx.stroke();
+                ctx.beginPath(); ctx.arc(CONFIG.W/2, CONFIG.H/2, 100, 0, Math.PI * 2); ctx.stroke();
+
+                // رسم الحواف والأهداف
+                State.segments.forEach(seg => {
                     // الجدران الصلبة
-                    ctx.strokeStyle = seg.player.color;
+                    ctx.strokeStyle = '#333'; ctx.lineWidth = 6;
                     ctx.beginPath(); ctx.moveTo(seg.wall1[0].x, seg.wall1[0].y); ctx.lineTo(seg.wall1[1].x, seg.wall1[1].y); ctx.stroke();
                     ctx.beginPath(); ctx.moveTo(seg.wall2[0].x, seg.wall2[0].y); ctx.lineTo(seg.wall2[1].x, seg.wall2[1].y); ctx.stroke();
                     
-                    // المرمى
-                    ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 10;
+                    // منطقة الهدف (ملونة بخلفية خفيفة كما في طلبك)
+                    ctx.strokeStyle = seg.player.color;
+                    ctx.globalAlpha = 0.5;
+                    ctx.lineWidth = 12;
                     ctx.beginPath(); ctx.moveTo(seg.goal[0].x, seg.goal[0].y); ctx.lineTo(seg.goal[1].x, seg.goal[1].y); ctx.stroke();
-                    ctx.lineWidth = 6;
+                    ctx.globalAlpha = 1.0;
                 });
-                ctx.shadowBlur = 0;
 
                 // رسم المضارب
                 for (let id in State.paddles) {
                     if (State.scores[id] <= 0) continue;
-                    let p = State.players.find(x => x.id === id);
+                    let pData = State.players.find(x => x.id === id);
                     let pad = State.paddles[id];
                     ctx.beginPath(); ctx.arc(pad.x, pad.y, CONFIG.PADDLE_R, 0, Math.PI*2);
-                    ctx.fillStyle = p.color; ctx.shadowBlur = 15; ctx.shadowColor = p.color; ctx.fill();
-                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = pData.color; ctx.fill();
+                    // تمييز مضربي
+                    if(id === State.me.id) { ctx.beginPath(); ctx.arc(pad.x, pad.y, 8, 0, Math.PI*2); ctx.fillStyle='#000'; ctx.fill(); }
                 }
 
                 // رسم القرص
-                ctx.beginPath(); ctx.arc(State.puck.x, State.puck.y, CONFIG.PUCK_R, 0, Math.PI*2);
-                ctx.fillStyle = '#fff'; ctx.shadowBlur = 20; ctx.shadowColor = '#fff'; ctx.fill();
-                ctx.shadowBlur = 0;
-            },
-
-            updateUI: () => {
-                const b = document.getElementById('scoreBoard'); b.innerHTML = '';
-                State.players.forEach(p => {
-                    let d = document.createElement('div'); d.className = 'score-item';
-                    let isDead = State.scores[p.id] <= 0;
-                    d.style.color = isDead ? '#555' : p.color;
-                    d.innerText = `${p.name}: ${isDead ? '💀' : State.scores[p.id]}`;
-                    b.appendChild(d);
-                });
+                ctx.beginPath(); ctx.arc(State.puck.x, State.puck.y, CONFIG.PUCK_R, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffcc00'; ctx.fill();
             }
         };
 
-        const GameNetwork = {
-            socket: null,
+        const App = {
             joinRoom: () => {
-                let name = document.getElementById('playerName').value;
-                let room = document.getElementById('roomCode').value;
+                let name = document.getElementById('playerName').value, room = document.getElementById('roomCode').value;
                 if(!name || !room) return;
                 
-                State.me.id = 'P_'+Math.floor(Math.random()*1000);
-                State.room = room;
+                State.me.id = 'P' + Math.floor(Math.random()*9999);
+                State.me.name = name; State.room = room;
                 State.players.push({ id: State.me.id, name: name, color: CONFIG.COLORS[0] });
                 
-                document.getElementById('loginPanel').style.display = 'none';
-                document.getElementById('lobbyPanel').style.display = 'block';
+                document.getElementById('loginArea').style.display = 'none';
+                document.getElementById('lobbyArea').style.display = 'block';
                 document.getElementById('lblRoom').innerText = room;
 
-                GameNetwork.socket = io(CONFIG.SERVER, { transports: ['websocket'] });
-                GameNetwork.socket.on('connect', () => {
-                    GameNetwork.emit('join', { id: State.me.id, name: name });
+                State.socket = io(CONFIG.SERVER, { transports: ['websocket'] });
+                State.socket.on('connect', () => {
+                    App.emit('join', { p: { id: State.me.id, name: name } });
                     setTimeout(() => {
-                        if(State.players.length === 1 || State.players[0].id === State.me.id) {
-                            State.me.isHost = true;
-                            document.getElementById('lblStatus').innerText = 'أنت المضيف 👑';
+                        if(State.players[0].id === State.me.id) {
+                            State.isHost = true;
+                            document.getElementById('lblStatus').innerText = 'أنت مدير الغرفة 👑';
                             document.getElementById('btnStartGame').style.display = 'block';
                         }
-                    }, 1000);
+                    }, 800);
                 });
 
-                GameNetwork.socket.on('otherPlayerMoved', (d) => {
-                    if(d.room !== State.room || d.sender === State.me.id) return;
+                State.socket.on('otherPlayerMoved', (d) => {
+                    if(d.room !== State.room || d.s === State.me.id) return;
                     
-                    if(d.type === 'join') {
-                        if (State.me.isHost && State.players.length < CONFIG.MAX_PLAYERS) {
-                            if(!State.players.find(p=>p.id===d.id)) {
-                                State.players.push({ id: d.id, name: d.name, color: CONFIG.COLORS[State.players.length] });
-                                GameNetwork.emit('sync_lobby', { players: State.players });
-                                GameNetwork.updateLobby();
-                            }
+                    if(d.type === 'join' && State.isHost && State.players.length < 5) {
+                        if(!State.players.find(x=>x.id === d.p.id)) {
+                            d.p.color = CONFIG.COLORS[State.players.length];
+                            State.players.push(d.p);
+                            App.emit('syncLobby', { players: State.players });
+                            App.updateLobby();
                         }
-                    } else if (d.type === 'sync_lobby') {
-                        if(!State.me.isHost) { State.players = d.players; GameNetwork.updateLobby(); }
+                    } else if (d.type === 'syncLobby' && !State.isHost) {
+                        State.players = d.players; App.updateLobby();
                     } else if (d.type === 'start') {
-                        State.players = d.players; State.scores = d.scores; Engine.start(); Engine.updateUI();
-                    } else if (d.type === 'sync_pad') {
-                        if(State.paddles[d.sender]) { State.paddles[d.sender].x = d.x; State.paddles[d.sender].y = d.y; }
-                    } else if (d.type === 'sync_puck' && !State.me.isHost) {
-                        State.puck.x = d.x; State.puck.y = d.y; State.puck.dx = d.dx; State.puck.dy = d.dy;
-                    } else if (d.type === 'sync_score') {
-                        State.scores = d.scores; Engine.updateUI(); Geom.buildTable();
+                        State.players = d.players; State.scores = d.scores; State.paddles = d.paddles;
+                        Joy.init(); Engine.start(); App.updateUI();
+                    } else if (d.type === 'pad') {
+                        if(State.paddles[d.s]) { State.paddles[d.s].x = d.x; State.paddles[d.s].y = d.y; }
+                    } else if (d.type === 'puck' && !State.isHost) {
+                        // تعديل موقع القرص بسلاسة بناءً على السيرفر
+                        let dist = Math.hypot(State.puck.x - d.x, State.puck.y - d.y);
+                        if(dist > 50) { State.puck.x = d.x; State.puck.y = d.y; } // التصحيح العنيف عند اللاغ
+                        State.puck.dx = d.dx; State.puck.dy = d.dy;
+                    } else if (d.type === 'score') {
+                        State.scores = d.scores; App.updateUI(); Geom.buildTable();
                     }
                 });
-                Engine.init();
             },
-            emit: (type, data) => GameNetwork.socket.emit('playerMoved', { type, room: State.room, sender: State.me.id, ...data }),
+            emit: (type, data) => State.socket.emit('playerMoved', { type, room: State.room, s: State.me.id, ...data }),
             updateLobby: () => {
-                document.getElementById('playersList').innerHTML = State.players.map(p => `<div style="color:${p.color}">${p.name}</div>`).join('');
+                document.getElementById('playersList').innerHTML = State.players.map(p => `<div style="color:${p.color}; font-size:18px; font-weight:bold; margin:5px 0;">${p.name}</div>`).join('');
             },
             startGame: () => {
-                if(State.players.length < 2) return alert('الحد الأدنى 2 لاعبين');
-                State.players.forEach(p => State.scores[p.id] = 5);
-                GameNetwork.emit('start', { players: State.players, scores: State.scores });
-                Engine.start(); Engine.updateUI();
+                if(State.players.length < 2) return alert('بانتظار لاعب آخر...');
+                State.players.forEach(p => { 
+                    State.scores[p.id] = 5; 
+                    State.paddles[p.id] = { x: CONFIG.W/2, y: CONFIG.H/2 }; 
+                });
+                App.emit('start', { players: State.players, scores: State.scores, paddles: State.paddles });
+                Joy.init(); Engine.start(); App.updateUI();
+            },
+            updateUI: () => {
+                document.getElementById('scoreBoard').innerHTML = State.players.map(p => {
+                    let dead = State.scores[p.id] <= 0;
+                    return `<div style="color: ${dead ? '#555' : p.color}; text-shadow: ${dead ? 'none' : '0 0 10px '+p.color}">${p.name}: ${dead ? '💀' : State.scores[p.id]}</div>`;
+                }).join('');
             }
         };
     </script>
